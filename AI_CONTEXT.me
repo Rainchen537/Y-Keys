@@ -1,0 +1,30 @@
+# Y-Keys 维护上下文
+
+Y-Keys 是 Y 系列 macOS 工具的一员，目标是通过「双击左 Command」快速展示当前 App 与系统快捷键。
+
+参考项目：
+
+- Y-Clip: https://github.com/Rainchen537/global-clipboard
+- Y-Dock: https://github.com/Rainchen537/DockWindowPreview
+
+设计约束：
+
+- 默认作为菜单栏工具运行，`LSUIElement=true`，不显示 Dock 图标。
+- 保持原生 Swift + AppKit 路线，避免引入第三方依赖。
+- 浮层使用 `NSPanel` + `NSVisualEffectView`，深色毛玻璃、大面板、8px 左右行圆角、蓝色匹配高亮。
+- 图标可由 `icon/IconGen.swift` 复现生成：核心元素是立体 Command 键帽，表达“双击左 Command 呼出快捷键面板”的功能抽象；浅色 macOS 底板、深蓝形体、粉紫到橙色渐变描边用于和 Y-Clip/Y-Dock 保持视觉家族统一。
+
+核心实现：
+
+- `KeyboardEventMonitor` 使用 `CGEventTap` 监听 `flagsChanged`、`keyDown`、`keyUp`。
+- 左 Command 双击基于左侧 Command 的 keyCode `kVK_Command`，释放事件间隔小于 `0.38s` 时触发。
+- `ShortcutScanner` 使用 Accessibility API 读取前台 App 菜单项的 `AXMenuItemCmdChar`、`AXMenuItemCmdVirtualKey`、`AXMenuItemCmdGlyph`、`AXMenuItemCmdModifiers`。
+- `ShortcutOverlayController` 负责面板渲染、点击关闭规则和高亮更新。
+- 系统快捷键当前由 `SystemShortcutProvider` 维护静态清单。
+
+后续优先级：
+
+1. 从 `com.apple.symbolichotkeys` 读取用户自定义系统快捷键。
+2. 增加搜索和分组折叠。
+3. 增加设置面板，允许调整双击间隔、面板尺寸和系统快捷键显示范围。
+4. 增加自动更新和 DMG 发布脚本，参考 Y-Clip / Y-Dock。

@@ -1,0 +1,88 @@
+#!/bin/zsh
+set -euo pipefail
+
+APP_NAME="Y-Keys"
+EXECUTABLE_NAME="YKeys"
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BUILD_DIR="$ROOT_DIR/build"
+FINAL_APP_DIR="$BUILD_DIR/$APP_NAME.app"
+TMP_PARENT="${TMPDIR:-/tmp}"
+TMP_BUILD_DIR="$(mktemp -d "$TMP_PARENT/y-keys-build.XXXXXX")"
+APP_DIR="$TMP_BUILD_DIR/$APP_NAME.app"
+CONTENTS_DIR="$APP_DIR/Contents"
+MACOS_DIR="$CONTENTS_DIR/MacOS"
+RESOURCES_DIR="$CONTENTS_DIR/Resources"
+ENTITLEMENTS="$ROOT_DIR/YKeys.entitlements"
+
+trap 'rm -rf "$TMP_BUILD_DIR"' EXIT
+
+RELEASE="${RELEASE:-0}"
+SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-}"
+
+if [[ "$RELEASE" == "1" ]]; then
+  if [[ -z "$SIGN_IDENTITY" ]]; then
+    SIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
+      | awk -F '"' '/Developer ID Application/ { print $2; exit }')"
+  fi
+  if [[ -z "$SIGN_IDENTITY" ]]; then
+    echo "错误：RELEASE=1 但找不到 Developer ID Application 证书。" >&2
+    exit 1
+  fi
+else
+  if [[ -z "$SIGN_IDENTITY" ]]; then
+    SIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
+      | awk -F '"' '/"[^"]+"/ { print $2; exit }')"
+  fi
+  if [[ -z "$SIGN_IDENTITY" ]]; then
+    SIGN_IDENTITY="-"
+  fi
+fi
+
+rm -rf "$APP_DIR"
+mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
+
+cp "$ROOT_DIR/Info.plist" "$CONTENTS_DIR/Info.plist"
+
+if [[ -f "$ROOT_DIR/icon/AppIcon.icns" ]]; then
+  cp "$ROOT_DIR/icon/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+fi
+
+xcrun swiftc \
+  -swift-version 5 \
+  -target arm64-apple-macosx13.0 \
+  -framework AppKit \
+  -framework Carbon \
+  -framework ApplicationServices \
+  -O \
+  "$ROOT_DIR"/Sources/*.swift \
+  -o "$MACOS_DIR/$EXECUTABLE_NAME"
+
+xattr -cr "$APP_DIR"
+xattr -d com.apple.FinderInfo "$APP_DIR" 2>/dev/null || true
+xattr -d 'com.apple.fileprovider.fpfs#P' "$APP_DIR" 2>/dev/null || true
+
+if [[ "$RELEASE" == "1" ]]; then
+  codesign --force \
+    --sign "$SIGN_IDENTITY" \
+    --options runtime \
+    --timestamp \
+    --entitlements "$ENTITLEMENTS" \
+    "$APP_DIR"
+else
+  codesign --force --deep --sign "$SIGN_IDENTITY" "$APP_DIR" >/dev/null
+fi
+
+rm -rf "$FINAL_APP_DIR"
+mkdir -p "$BUILD_DIR"
+ditto --noextattr --noqtn "$APP_DIR" "$FINAL_APP_DIR"
+xattr -cr "$FINAL_APP_DIR"
+xattr -d com.apple.FinderInfo "$FINAL_APP_DIR" 2>/dev/null || true
+xattr -d 'com.apple.fileprovider.fpfs#P' "$FINAL_APP_DIR" 2>/dev/null || true
+
+echo "已构建：$FINAL_APP_DIR"
+echo "签名身份：$SIGN_IDENTITY"
+if [[ "$RELEASE" == "1" ]]; then
+  echo "模式：发布（hardened runtime）"
+else
+  echo "模式：本地测试"
+fi
