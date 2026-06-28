@@ -1,0 +1,22 @@
+# Y-Keys AI Changelog
+
+本文件记录 Y-Keys 面向 AI/维护者的工作流水。每次功能、修复、发布、发布事故处理或维护规范调整后追加记录。不要在这里记录 token、证书密码、Apple ID、notary 密码等敏感信息。
+
+用户可见发布历史维护在 `CHANGELOG.md`，GitHub Release 需要同步用户可见发布说明。
+
+## 2026-06-28
+
+- 接入 `Y-Framework/Setting` 共享设置页面框架。
+- 在仓库内 vendored `Y-Framework/Setting/YSettingsFramework.swift`，避免单独 clone GitHub 仓库时缺少父级共享框架。
+- 新增 `Sources/SettingsWindowController.swift`，提供统一的独立设置窗口，包含通用、权限和关于页面。
+- 将菜单栏入口改为简单菜单：打开设置、更多 Y-Project 占位和退出项。
+- 更新 `build.sh`，编译时加入仓库内 `Y-Framework/Setting/*.swift`，并保留父级共享框架回退路径。
+- 补齐基础用户可见 `CHANGELOG.md` 和 `release.sh`，准备发布 `v0.1.1`。
+- 发布 `v0.1.1` 的签名、公证、staple 后 DMG，SHA256：`a7bb0662959bc225c7dffa3419c396f720b5f06a202e7b7b0e1ba559df9363a0`。
+
+## 2026-06-27
+
+- 统一为 Y-Project 标准 AI 维护结构：`AI_CONTEXT.me` 负责工作规范和项目说明，`CHANGELOG.me` 负责维护更新记录。
+- 在 `AI_CONTEXT.me` 中引用根目录 `Y_PROJECT_APP_STANDARD.me`。
+- 保留原有 Y-Keys 设计约束、核心实现和后续优先级。
+- 明确标记当前待补齐能力：独立 GitHub 仓库、公开 `CHANGELOG.md`、签名公证 release 脚本、GitHub MCP / GitHub App release、自动更新和发布后本机验证。

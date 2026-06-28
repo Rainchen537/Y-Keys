@@ -11,6 +11,7 @@
 ![macOS](https://img.shields.io/badge/macOS-13.0+-111827?logo=apple&logoColor=white)
 ![Swift](https://img.shields.io/badge/Swift-5-F05138?logo=swift&logoColor=white)
 ![AppKit](https://img.shields.io/badge/AppKit-native-0EA5E9)
+[![下载](https://img.shields.io/badge/下载-DMG-2563EB?logo=github)](https://github.com/Rainchen537/Y-Keys/releases/latest)
 
 <img src="docs/hero.svg" width="680" alt="Y-Keys 快捷键面板预览" />
 
@@ -26,9 +27,19 @@
 | 单屏完整展示 | 面板会按可用屏幕空间自动拆成多列并缩放，不提供滚动条，尽量一次展示所有快捷键。 |
 | 按键实时高亮 | 按住 `⌘` 会只高亮每一行里的 `⌘` 键帽，继续按 `⌥` 会同时高亮 `⌥` 键帽。 |
 | 轻量关闭规则 | 点击快捷键行会保持面板；点击背景、面板外区域或按下不属于任何快捷键组合的键会关闭面板。 |
+| 统一设置窗口 | 菜单栏入口打开独立设置窗口，可查看触发方式、权限状态、版本和 GitHub 入口。 |
 | 原生菜单栏工具 | 默认不显示 Dock 图标，不打断当前工作流。 |
 
-## 安装和构建
+## 安装
+
+下载安装包：
+
+1. 前往 [Releases](https://github.com/Rainchen537/Y-Keys/releases/latest) 下载最新 `Y-Keys-v0.1.1.dmg`。
+2. 打开 DMG。
+3. 将 `Y-Keys.app` 拖到 `Applications`。
+4. 启动后按提示开启辅助功能权限。
+
+## 从源码构建
 
 需要 macOS 13+ 和 Xcode Command Line Tools。当前仓库默认面向 Apple Silicon 构建。
 

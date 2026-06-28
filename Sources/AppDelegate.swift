@@ -4,6 +4,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let keyboardMonitor = KeyboardEventMonitor()
     private let shortcutScanner = ShortcutScanner()
     private let overlayController = ShortcutOverlayController()
+    private lazy var settingsWindowController = SettingsWindowController { [weak self] in
+        self?.showShortcuts()
+    }
     private var statusItem: NSStatusItem?
     private var hasShownPermissionWarning = false
 
@@ -24,20 +27,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.imagePosition = .imageOnly
         item.button?.toolTip = AppBranding.displayName
 
-        let menu = NSMenu()
-        menu.addItem(withTitle: "显示快捷键", action: #selector(showShortcutsFromMenu), keyEquivalent: "")
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "打开辅助功能设置", action: #selector(openAccessibilitySettings), keyEquivalent: "")
-        menu.addItem(withTitle: "刷新辅助功能权限记录", action: #selector(resetAccessibility), keyEquivalent: "")
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "打开 GitHub", action: #selector(openGitHub), keyEquivalent: "")
-        menu.addItem(withTitle: "退出 Y-Keys", action: #selector(quit), keyEquivalent: "q")
-
-        for item in menu.items {
-            item.target = self
-        }
-
-        item.menu = menu
+        item.menu = YProjectStatusMenu.make(
+            target: self,
+            openSettingsAction: #selector(openSettings),
+            quitAction: #selector(quit),
+            appName: AppBranding.displayName
+        )
         statusItem = item
     }
 
@@ -64,8 +59,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func showShortcutsFromMenu() {
-        showShortcuts()
+    @objc private func openSettings() {
+        settingsWindowController.show()
     }
 
     private func showShortcuts() {
