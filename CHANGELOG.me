@@ -22,7 +22,8 @@
 - 将安装路径、Bundle ID 和 Team ID 集中到 `AppBranding`，供设置页和 `AppDelegate` 共用，避免运行副本诊断参数漂移。
 - `make_dmg.sh` 的 Finder 布局改为使用显式挂载点的实际名称；布局失败会终止打包，不再静默产出未经布局验证的 DMG。
 - 准备发布 `v0.1.2`，版本号为 `CFBundleShortVersionString=0.1.2`、`CFBundleVersion=3`，公开 changelog 日期为 `2026-07-18`。
-- 最终 Release URL、DMG SHA256，以及从最终 DMG 覆盖安装 `/Applications/Y-Keys.app` 后的验证结果，将在发布完成后追加；当前不预填尚未产生的值。
+- 完成 `v0.1.2` 发布闭环：源码提交 `f4e6a1546fac25a6fe8d95f354bb85df5a043f2a`、tag `v0.1.2`、Release `https://github.com/Rainchen537/Y-Keys/releases/tag/v0.1.2`；最终 `Y-Keys-v0.1.2.dmg` SHA256 为 `4403d67753e72b87f935acf9a3f0926a122f05dd46119d4abadb9b95f10b0395`，GitHub asset digest 已核对一致。
+- 从上述最终 DMG 覆盖安装到 `/Applications/Y-Keys.app` 并通过 LaunchServices 启动；确认版本 `0.1.2 (3)`、Bundle ID `com.lixingchen.YKeys`、Developer ID 团队 `A94225N8T5`、hardened runtime、严格 codesign、App/DMG stapler 与 Gatekeeper 验证通过。安装版权限页截图确认“正式安装版”、辅助功能与输入监控均“已开启”、键盘监听“运行中”，且只运行一个 `YKeys` 进程。
 
 ## 2026-07-13
 
