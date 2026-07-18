@@ -4,7 +4,7 @@ set -euo pipefail
 APP_NAME="Y-Keys"
 VOL_NAME="Y-Keys"
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_PATH="$ROOT_DIR/build/$APP_NAME.app"
+APP_PATH="${APP_PATH_OVERRIDE:-$ROOT_DIR/build/$APP_NAME.app}"
 BG_SRC="$ROOT_DIR/icon/dmg_bg.png"
 DIST_DIR="$ROOT_DIR/dist"
 DMG_FINAL="$DIST_DIR/$VOL_NAME.dmg"
@@ -16,6 +16,18 @@ WINDOW_WIDTH=640
 WINDOW_HEIGHT=400
 WINDOW_RIGHT=$((WINDOW_LEFT + WINDOW_WIDTH))
 WINDOW_BOTTOM=$((WINDOW_TOP + WINDOW_HEIGHT))
+MOUNT_DIR=""
+MOUNT_NAME=""
+
+cleanup() {
+  if [[ -n "$MOUNT_DIR" ]]; then
+    hdiutil detach "$MOUNT_DIR" >/dev/null 2>&1 || hdiutil detach "$MOUNT_DIR" -force >/dev/null 2>&1 || true
+    rm -rf "$MOUNT_DIR"
+  fi
+  rm -rf "$STAGE_DIR"
+  rm -f "$DMG_TMP"
+}
+trap cleanup EXIT INT TERM
 
 if [[ ! -d "$APP_PATH" ]]; then
   "$ROOT_DIR/build.sh"
@@ -47,15 +59,15 @@ hdiutil create \
   -ov \
   "$DMG_TMP" >/dev/null
 
-MOUNT_DIR="/Volumes/$VOL_NAME"
-hdiutil detach "$MOUNT_DIR" >/dev/null 2>&1 || true
-hdiutil attach "$DMG_TMP" -readwrite -noverify -noautoopen >/dev/null
+MOUNT_DIR="$(mktemp -d /tmp/Y-Keys-dmg.XXXXXX)"
+MOUNT_NAME="${MOUNT_DIR:t}"
+hdiutil attach "$DMG_TMP" -mountpoint "$MOUNT_DIR" -readwrite -noverify -noautoopen >/dev/null
 sleep 2
 
-osascript <<EOF || echo "（提示：Finder 布局设置被跳过，DMG 仍可正常使用）"
+osascript <<EOF
 set bgFile to POSIX file "$MOUNT_DIR/.background/bg.png" as alias
 tell application "Finder"
-  tell disk "$VOL_NAME"
+  tell disk "$MOUNT_NAME"
     open
     delay 1
     set current view of container window to icon view
@@ -77,9 +89,14 @@ tell application "Finder"
 end tell
 EOF
 
+xattr -cr "$MOUNT_DIR/$APP_NAME.app"
+codesign --verify --deep --strict --verbose=2 "$MOUNT_DIR/$APP_NAME.app"
 sync
 hdiutil detach "$MOUNT_DIR" >/dev/null 2>&1 || \
-  (sleep 2 && hdiutil detach "$MOUNT_DIR" -force >/dev/null 2>&1) || true
+  (sleep 2 && hdiutil detach "$MOUNT_DIR" -force >/dev/null 2>&1)
+rm -rf "$MOUNT_DIR"
+MOUNT_DIR=""
+MOUNT_NAME=""
 
 rm -f "$DMG_FINAL"
 hdiutil convert "$DMG_TMP" -format UDZO -imagekey zlib-level=9 -o "$DMG_FINAL" >/dev/null

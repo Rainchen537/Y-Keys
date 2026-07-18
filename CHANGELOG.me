@@ -4,11 +4,42 @@
 
 用户可见发布历史维护在 `CHANGELOG.md`，GitHub Release 需要同步用户可见发布说明。
 
+## 2026-07-18
+
+- 修复从设置页点击“显示快捷键”时扫描到 Y-Keys 自身的问题，改为保留打开设置前的前台 App 并针对它读取菜单快捷键。
+- 新增 GitHub Release 手动更新检查，更新页可直接显示最新版、发现新版本或检查失败状态。
+- 权限页将辅助功能与输入监控拆分为独立状态和操作，分别使用 `AXIsProcessTrusted` 与 `CGPreflightListenEventAccess` 检测，并提供对应的请求和系统设置入口。
+- App 重新激活时会自动复查两项权限；若键盘 event tap 尚未运行，会再次尝试启动监听，覆盖从系统设置授权后返回 App 的恢复路径。
+- 权限页新增运行副本诊断，按 `/Applications/Y-Keys.app` 路径、Bundle ID、代码签名有效性和 Developer ID 团队标识区分“正式安装版”与“开发副本”，并可切换到验证通过的安装版。
+- 权限记录重置改为后台执行，并将 `Accessibility` 与 `ListenEvent` 两项 TCC 刷新都限定到 `com.lixingchen.YKeys`；`reset_accessibility.sh` 同样会先验证正式签名安装版，再定向重置并重新启动。
+- 移除设置窗口常驻期间的 1.5 秒轮询，返回 App 时仍会自动复查。
+- 设置预览模式在无辅助功能权限时不再被模态警告阻塞，并在显示窗口前先选择目标页面。
+- 共享设置框架增加屏幕可见区域约束和 sidebar identifier 校验；关于页补充产品身份。
+- 权限启动警告改为按辅助功能、输入监控和运行副本状态去重：相同状态不会重复弹窗，授权状态变化后仍会提示下一项缺失权限。
+- 通过 `NSWorkspace` 激活与终止通知持续记录最近使用的外部 App；设置窗口置前时继续扫描该 App，并拒绝扫描 Y-Keys 自身或已终止的旧目标。
+- 权限页新增独立键盘监听运行状态；权限记录部分重置失败时会先刷新设置页各状态，再显示失败原因，同时移除未被引用的 `AppDelegate` 重置实现。
+- 更新检查可正确提取带后缀 tag 的数字版本，并在检查失败时向用户显示具体错误信息；`Sources/UpdateChecker.swift` 仍是必须纳入源码提交的构建源文件。
+- 将安装路径、Bundle ID 和 Team ID 集中到 `AppBranding`，供设置页和 `AppDelegate` 共用，避免运行副本诊断参数漂移。
+- `make_dmg.sh` 的 Finder 布局改为使用显式挂载点的实际名称；布局失败会终止打包，不再静默产出未经布局验证的 DMG。
+- 准备发布 `v0.1.2`，版本号为 `CFBundleShortVersionString=0.1.2`、`CFBundleVersion=3`，公开 changelog 日期为 `2026-07-18`。
+- 最终 Release URL、DMG SHA256，以及从最终 DMG 覆盖安装 `/Applications/Y-Keys.app` 后的验证结果，将在发布完成后追加；当前不预填尚未产生的值。
+
+## 2026-07-13
+
+- 新增项目级 `AGENTS.md`，继承 Y-Project 根规范，并记录 Y-Keys 的仓库、分支、版本字段、DMG 命名和本机安装验证要求。
+- 将“每次修改任务必须发布新版本”设为强制完成条件：签名、公证并 staple DMG，发布 GitHub Release，再从最终 DMG 覆盖安装本机 App。
+- 修正 `AI_CONTEXT.me` 中 Y-Clip 和 Y-Dock 的旧仓库地址。
+
 ## 2026-06-28
 
 - 接入 `Y-Framework/Setting` 共享设置页面框架。
 - 在仓库内 vendored `Y-Framework/Setting/YSettingsFramework.swift`，避免单独 clone GitHub 仓库时缺少父级共享框架。
 - 新增 `Sources/SettingsWindowController.swift`，提供统一的独立设置窗口，包含通用、权限和关于页面。
+- 将设置页 sidebar 统一为 `通用 / 功能 / 权限 / 更新 / 关于`，并补齐功能、更新页面的标准分类内容。
+- 调整共享设置框架窗口比例、sidebar 宽度、内容内边距和卡片等宽约束；通过截图修复 Y-Keys 功能页第一张卡片未拉满内容区的问题。
+- 将共享设置窗口默认尺寸放大到 `1200 x 810`，并把左侧导航按钮改为居中排列；通过截图复查 Y-Keys 功能页。
+- 修正 sidebar 内 App 信息区和导航区的居中方式，改为直接按 sidebar 中心线约束；移除设置页页面标题和 section card 内的静态解释性小灰字。
+- 将 sidebar App 信息区顶部间距调为 96，让 logo 保持在左侧上半部分。
 - 将菜单栏入口改为简单菜单：打开设置、更多 Y-Project 占位和退出项。
 - 更新 `build.sh`，编译时加入仓库内 `Y-Framework/Setting/*.swift`，并保留父级共享框架回退路径。
 - 补齐基础用户可见 `CHANGELOG.md` 和 `release.sh`，准备发布 `v0.1.1`。

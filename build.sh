@@ -22,7 +22,7 @@ SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-}"
 if [[ "$RELEASE" == "1" ]]; then
   if [[ -z "$SIGN_IDENTITY" ]]; then
     SIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
-      | awk -F '"' '/Developer ID Application/ { print $2; exit }')"
+      | awk -F '"' '/Developer ID Application.*\(A94225N8T5\)/ { print $2; exit }')"
   fi
   if [[ -z "$SIGN_IDENTITY" ]]; then
     echo "错误：RELEASE=1 但找不到 Developer ID Application 证书。" >&2
@@ -63,6 +63,7 @@ xcrun swiftc \
   -framework AppKit \
   -framework Carbon \
   -framework ApplicationServices \
+  -framework Security \
   -O \
   "${FRAMEWORK_SOURCES[@]}" \
   "$ROOT_DIR"/Sources/*.swift \
@@ -89,6 +90,7 @@ ditto --noextattr --noqtn "$APP_DIR" "$FINAL_APP_DIR"
 xattr -cr "$FINAL_APP_DIR"
 xattr -d com.apple.FinderInfo "$FINAL_APP_DIR" 2>/dev/null || true
 xattr -d 'com.apple.fileprovider.fpfs#P' "$FINAL_APP_DIR" 2>/dev/null || true
+codesign --verify --deep --strict --verbose=2 "$FINAL_APP_DIR"
 
 echo "已构建：$FINAL_APP_DIR"
 echo "签名身份：$SIGN_IDENTITY"

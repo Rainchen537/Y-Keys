@@ -22,22 +22,24 @@
 | 功能 | 体验 |
 | --- | --- |
 | 左 Command 双击呼出 | 快速连按两次左侧 `⌘`，在当前屏幕中央显示快捷键面板。 |
-| 当前 App 快捷键 | 通过 Accessibility API 读取前台 App 菜单栏里的快捷键。 |
+| 当前 App 快捷键 | 跟踪最近激活的外部 App，并通过 Accessibility API 读取其菜单栏快捷键；设置窗口置前时也不会误扫 Y-Keys 自身。 |
 | 系统快捷键 | 内置常用系统快捷键，覆盖聚焦、截屏、辅助功能、输入法和程序坞。 |
 | 单屏完整展示 | 面板会按可用屏幕空间自动拆成多列并缩放，不提供滚动条，尽量一次展示所有快捷键。 |
 | 按键实时高亮 | 按住 `⌘` 会只高亮每一行里的 `⌘` 键帽，继续按 `⌥` 会同时高亮 `⌥` 键帽。 |
 | 轻量关闭规则 | 点击快捷键行会保持面板；点击背景、面板外区域或按下不属于任何快捷键组合的键会关闭面板。 |
-| 统一设置窗口 | 菜单栏入口打开独立设置窗口，可查看触发方式、权限状态、版本和 GitHub 入口。 |
+| 统一设置窗口 | 菜单栏入口打开独立设置窗口，可查看触发方式、权限状态、版本，并手动检查 GitHub Release 更新。 |
+| 权限分项诊断 | 辅助功能、输入监控和键盘监听运行状态分别显示；从系统设置返回 App 时会重新检测权限并重试监听，权限状态推进时会继续提示下一项而不重复轰炸相同警告。 |
+| 正式安装版切换 | 权限页区分正式安装版与开发副本，并可切换到签名验证通过的 `/Applications/Y-Keys.app`。 |
 | 原生菜单栏工具 | 默认不显示 Dock 图标，不打断当前工作流。 |
 
 ## 安装
 
 下载安装包：
 
-1. 前往 [Releases](https://github.com/Rainchen537/Y-Keys/releases/latest) 下载最新 `Y-Keys-v0.1.1.dmg`。
+1. 前往 [Releases](https://github.com/Rainchen537/Y-Keys/releases/latest) 下载最新 [`Y-Keys-v0.1.2.dmg`](https://github.com/Rainchen537/Y-Keys/releases/download/v0.1.2/Y-Keys-v0.1.2.dmg)。
 2. 打开 DMG。
 3. 将 `Y-Keys.app` 拖到 `Applications`。
-4. 启动后按提示开启辅助功能权限。
+4. 启动后按提示开启辅助功能与输入监控权限。
 
 ## 从源码构建
 
@@ -61,11 +63,12 @@ dist/Y-Keys.dmg
 
 ## 权限说明
 
-Y-Keys 需要 **Accessibility / 辅助功能** 权限：
+Y-Keys 会分别检测 **Accessibility / 辅助功能** 与 **Input Monitoring / 输入监控**：
 
 | 权限 | 用途 |
 | --- | --- |
-| Accessibility | 监听左 Command 双击、读取当前 App 菜单快捷键、判断按键组合高亮。 |
+| Accessibility | 读取当前 App 菜单快捷键，并为全局事件监听提供辅助功能授权。 |
+| Input Monitoring | 监听左 Command 双击和按键状态，用于呼出面板与实时高亮。 |
 
 授权路径：
 
@@ -74,15 +77,17 @@ System Settings
 → Privacy & Security
 → Accessibility
 → 勾选 Y-Keys
+
+System Settings
+→ Privacy & Security
+→ Input Monitoring
+→ 勾选 Y-Keys
 ```
 
-如果系统设置里显示已授权但 App 仍无法监听，可以运行：
-
-```zsh
-./reset_accessibility.sh
-```
-
-然后重新打开 Y-Keys 并再次授权。
+- 权限页会分别显示两项权限的状态，并提供独立的请求与系统设置入口。
+- 从系统设置返回 Y-Keys 时，App 会重新检测两项权限；若键盘监听尚未运行，会自动重试启动。
+- 权限页也会验证当前副本是否为 `/Applications/Y-Keys.app` 中 Bundle ID 与 Developer ID 团队签名均匹配的正式安装版；开发副本可直接切换到验证通过的安装版。
+- 如果系统设置里显示已授权但 App 仍无法监听，可点击 **「刷新记录」**，或运行 `./reset_accessibility.sh`。两种方式都只会重置 Y-Keys 自身 Bundle ID 的 Accessibility 与 Input Monitoring TCC 记录，并在重新授权后从 `/Applications` 启动正式安装版。
 
 ## 技术实现
 

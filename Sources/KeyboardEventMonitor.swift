@@ -19,7 +19,7 @@ final class KeyboardEventMonitor {
         var errorDescription: String? {
             switch self {
             case .eventTapUnavailable:
-                return "无法启动全局键盘监听。请为 Y-Keys 开启「辅助功能」权限后重启 App。"
+                return "无法启动全局键盘监听。请确认 Y-Keys 的「辅助功能」和「输入监控」权限均已开启。"
             }
         }
     }
@@ -37,12 +37,20 @@ final class KeyboardEventMonitor {
 
     private let doubleTapInterval: TimeInterval = 0.38
 
+    var isRunning: Bool {
+        guard let eventTap else { return false }
+        return CFMachPortIsValid(eventTap) && CGEvent.tapIsEnabled(tap: eventTap)
+    }
+
     deinit {
         stop()
     }
 
     func start() throws {
-        guard eventTap == nil else { return }
+        if isRunning {
+            return
+        }
+        stop()
 
         let mask = (1 << CGEventType.flagsChanged.rawValue)
             | (1 << CGEventType.keyDown.rawValue)
@@ -76,6 +84,11 @@ final class KeyboardEventMonitor {
         }
         runLoopSource = nil
         eventTap = nil
+        state = KeyboardInputState()
+        leftCommandDown = false
+        leftCommandTapCandidate = false
+        lastLeftCommandTapAt = 0
+        onInputStateChanged?(state)
     }
 
     private func handle(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) {
@@ -87,6 +100,11 @@ final class KeyboardEventMonitor {
         case .keyUp:
             handleKeyUp(event)
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
+            state = KeyboardInputState()
+            leftCommandDown = false
+            leftCommandTapCandidate = false
+            lastLeftCommandTapAt = 0
+            emitStateChanged()
             if let eventTap {
                 CGEvent.tapEnable(tap: eventTap, enable: true)
             }

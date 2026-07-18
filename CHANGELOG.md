@@ -2,6 +2,15 @@
 
 All notable Y-Keys release changes are tracked here.
 
+## v0.1.2 - 2026-07-18
+
+- Fixed “显示快捷键” in Settings so it tracks the most recently activated external app, never scans Y-Keys itself, and discards terminated targets.
+- Added a real manual GitHub Release update check, numeric comparison for suffix-bearing tags, visible failure details, and clearer product identity in About.
+- Split Accessibility and Input Monitoring into separate status and action rows, retried the keyboard listener when the app becomes active after permission changes, and allowed the warning to advance when only one missing permission was granted without duplicating identical alerts.
+- Added runtime diagnostics that distinguish the verified signed `/Applications` copy from development copies and can switch directly to the installed app.
+- Added a separate keyboard-listener runtime status, scoped TCC refreshes to Y-Keys' bundle identifier for Accessibility and Input Monitoring, moved reset work off the main thread, and refreshed permission status before reporting a partial reset failure.
+- Removed continuous permission polling, validated preview section identifiers, and constrained settings windows to the active display.
+
 ## v0.1.1 - 2026-06-28
 
 - Added an independent sidebar settings window using the shared Y-Project settings shell.

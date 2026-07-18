@@ -6,16 +6,28 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Y-Keys"
-APP_PATH="$ROOT_DIR/build/$APP_NAME.app"
+BUILD_APP_PATH="$ROOT_DIR/build/$APP_NAME.app"
+RELEASE_WORK="$(mktemp -d /tmp/Y-Keys-release.XXXXXX)"
+APP_PATH="$RELEASE_WORK/$APP_NAME.app"
 DMG_PATH="$ROOT_DIR/dist/$APP_NAME.dmg"
 NOTARY_PROFILE="${NOTARY_PROFILE:-y-dock-notary}"
 SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-}"
+VERIFY_MOUNT=""
+
+cleanup() {
+  if [[ -n "$VERIFY_MOUNT" ]]; then
+    hdiutil detach "$VERIFY_MOUNT" >/dev/null 2>&1 || hdiutil detach "$VERIFY_MOUNT" -force >/dev/null 2>&1 || true
+    rm -rf "$VERIFY_MOUNT"
+  fi
+  rm -rf "$RELEASE_WORK"
+}
+trap cleanup EXIT
 
 bold() { print -P "%B$1%b"; }
 
 if [[ -z "$SIGN_IDENTITY" ]]; then
   SIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
-    | awk -F '"' '/Developer ID Application/ { print $2; exit }')"
+    | awk -F '"' '/Developer ID Application.*\(A94225N8T5\)/ { print $2; exit }')"
 fi
 if [[ -z "$SIGN_IDENTITY" ]]; then
   echo "错误：找不到 Developer ID Application 证书。" >&2
@@ -62,6 +74,10 @@ notarize() {
 
 bold "▶ 1/7 构建并签名 app…"
 CODE_SIGN_IDENTITY="$SIGN_IDENTITY" RELEASE=1 "$ROOT_DIR/build.sh"
+rm -rf "$APP_PATH"
+ditto --noextattr --noqtn "$BUILD_APP_PATH" "$APP_PATH"
+xattr -cr "$APP_PATH"
+codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
 SIG_INFO="$(codesign -dvvv "$APP_PATH" 2>&1)"
 if ! grep -q "Developer ID Application" <<< "$SIG_INFO"; then
@@ -70,6 +86,10 @@ if ! grep -q "Developer ID Application" <<< "$SIG_INFO"; then
 fi
 if ! grep -q "flags=.*runtime" <<< "$SIG_INFO"; then
   echo "✗ app 未启用 hardened runtime。" >&2
+  exit 1
+fi
+if ! grep -q "TeamIdentifier=A94225N8T5" <<< "$SIG_INFO"; then
+  echo "✗ app 签名团队不是 A94225N8T5。" >&2
   exit 1
 fi
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
@@ -85,7 +105,7 @@ xcrun stapler validate "$APP_PATH"
 echo "  ✓ app 已公证并装订"
 
 bold "▶ 3/7 打包 DMG…"
-"$ROOT_DIR/make_dmg.sh"
+APP_PATH_OVERRIDE="$APP_PATH" "$ROOT_DIR/make_dmg.sh"
 
 bold "▶ 4/7 签名 DMG…"
 codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG_PATH"
@@ -103,6 +123,13 @@ echo "  ✓ DMG 已装订"
 
 bold "▶ 7/7 Gatekeeper 验证…"
 spctl -a -vvv -t open --context context:primary-signature "$DMG_PATH"
+VERIFY_MOUNT="$(mktemp -d /tmp/Y-Keys-verify.XXXXXX)"
+hdiutil attach "$DMG_PATH" -mountpoint "$VERIFY_MOUNT" -nobrowse -noautoopen >/dev/null
+codesign --verify --deep --strict --verbose=2 "$VERIFY_MOUNT/$APP_NAME.app"
+spctl -a -t exec -vvv "$VERIFY_MOUNT/$APP_NAME.app"
+hdiutil detach "$VERIFY_MOUNT" >/dev/null 2>&1 || hdiutil detach "$VERIFY_MOUNT" -force >/dev/null 2>&1
+rm -rf "$VERIFY_MOUNT"
+VERIFY_MOUNT=""
 
 echo ""
 bold "✅ 发布产物完成"

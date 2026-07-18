@@ -12,7 +12,11 @@ final class ShortcutScanner {
     }
 
     func scanFrontmostApplication() -> ShortcutCatalog {
-        let app = NSWorkspace.shared.frontmostApplication
+        scan(application: NSWorkspace.shared.frontmostApplication)
+    }
+
+    func scan(application requestedApplication: NSRunningApplication?) -> ShortcutCatalog {
+        let app = validExternalApplication(requestedApplication)
         let appName = app?.localizedName ?? "当前应用"
         let appIcon = app?.icon
         let trusted = AccessibilityPermission.isTrusted(prompt: false)
@@ -40,6 +44,13 @@ final class ShortcutScanner {
             systemSections: SystemShortcutProvider.sections(),
             needsAccessibilityPermission: !trusted
         )
+    }
+
+    private func validExternalApplication(_ application: NSRunningApplication?) -> NSRunningApplication? {
+        guard let application, !application.isTerminated else { return nil }
+        guard application.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return nil }
+        guard application.bundleIdentifier != AppBranding.bundleIdentifier else { return nil }
+        return application
     }
 
     private func scanApplication(_ app: NSRunningApplication) -> [ShortcutSection] {
