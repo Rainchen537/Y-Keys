@@ -4,6 +4,15 @@
 
 用户可见发布历史维护在 `CHANGELOG.md`，GitHub Release 需要同步用户可见发布说明。
 
+## 2026-07-19
+
+- 接入仓库内 vendored 的 `Y-Framework/Permission`，统一首次启动权限汇总和后续 Accessibility、Input Monitoring、键盘监听提示；共享协调器按运行副本与三项状态生成持久化指纹，状态变化后顺序推进，完全相同的警告不再重复弹出。
+- 保留 Y-Keys 自己的公开权限查询、System Settings 入口、event tap 重试和重启判断，设置预览环境继续禁止模态权限弹窗。
+- 接入仓库内 vendored 的 `Y-Framework/DMG`，`make_dmg.sh` 仅保留产品配置；背景标题、Finder 布局、Applications 链接、签名和最终只读重挂载统一验证，并已用包含空格的测试 App 名完整验证动态名称路径。
+- 移除旧的项目专用 `icon/DmgBgGen.swift` 和 `icon/dmg_bg.png`，避免共享框架接入后继续维护重复实现。
+- 正式安装版重启改为通过 LaunchServices 打开精确 App 路径，不再使用会强制新实例的 `open -n`。
+- 通过共享框架独立编译、Y-Keys 完整构建、DMG 生成与背景/布局截图检查；准备发布 `v0.1.3`，版本号为 `CFBundleShortVersionString=0.1.3`、`CFBundleVersion=4`。
+
 ## 2026-07-18
 
 - 修复从设置页点击“显示快捷键”时扫描到 Y-Keys 自身的问题，改为保留打开设置前的前台 App 并针对它读取菜单快捷键。

@@ -1,16 +1,15 @@
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private struct PermissionWarningState: Equatable {
-        let accessibilityTrusted: Bool
-        let inputMonitoringTrusted: Bool
-        let isInstalledCopy: Bool
-        let hasInstalledCopy: Bool
-    }
-
     private let keyboardMonitor = KeyboardEventMonitor()
     private let shortcutScanner = ShortcutScanner()
     private let overlayController = ShortcutOverlayController()
+    private lazy var permissionPromptCoordinator = YPermissionPromptCoordinator(
+        configuration: YPermissionPromptConfiguration(
+            appName: AppBranding.displayName,
+            persistenceNamespace: AppBranding.bundleIdentifier
+        )
+    )
     private lazy var settingsWindowController = SettingsWindowController(
         isKeyboardListenerRunning: { [weak self] in
             self?.keyboardMonitor.isRunning == true
@@ -21,20 +20,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
     private var statusItem: NSStatusItem?
     private var lastActivatedExternalApplication: NSRunningApplication?
-    private var lastPresentedPermissionWarningState: PermissionWarningState?
+    private var lastKeyboardMonitorError: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         setupStatusItem()
         setupExternalApplicationTracking()
         setupKeyboardMonitor()
-        startKeyboardMonitor()
+        startKeyboardMonitor(presentWarning: false)
+        permissionPromptCoordinator.presentInitialGuidanceIfNeeded(
+            permissions: permissionDescriptors,
+            runtime: permissionRuntimeDescriptor
+        )
         showSettingsForPreviewIfRequested()
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        guard !isSettingsPreviewRequested, !keyboardMonitor.isRunning else { return }
-        startKeyboardMonitor()
+        guard !isSettingsPreviewRequested else { return }
+        if !keyboardMonitor.isRunning {
+            startKeyboardMonitor(presentWarning: false)
+        }
+        permissionPromptCoordinator.presentMissingPermissionIfNeeded(
+            permissions: permissionDescriptors,
+            runtime: permissionRuntimeDescriptor,
+            reason: lastKeyboardMonitorError
+        )
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -134,12 +144,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func startKeyboardMonitor() {
+    private func startKeyboardMonitor(presentWarning: Bool = true) {
         do {
             try keyboardMonitor.start()
-            lastPresentedPermissionWarningState = nil
+            lastKeyboardMonitorError = nil
         } catch {
-            if !isSettingsPreviewRequested {
+            lastKeyboardMonitorError = error.localizedDescription
+            if presentWarning, !isSettingsPreviewRequested {
                 showPermissionWarningIfNeeded(message: error.localizedDescription)
             }
         }
@@ -173,7 +184,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         overlayController.show(catalog: catalog)
 
         if catalog.needsAccessibilityPermission {
-            AccessibilityPermission.requestPrompt()
+            permissionPromptCoordinator.presentMissingPermissionIfNeeded(
+                permissions: permissionDescriptors,
+                runtime: permissionRuntimeDescriptor,
+                reason: "无法读取当前 App 的菜单快捷键。",
+                force: true
+            )
         }
     }
 
@@ -190,135 +206,134 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.terminate(nil)
     }
 
-    private func showPermissionWarningIfNeeded(message: String) {
+    private var permissionDescriptors: [YPermissionPromptDescriptor] {
         let accessibilityTrusted = AccessibilityPermission.isTrusted(prompt: false)
         let inputMonitoringTrusted = AccessibilityPermission.isInputMonitoringTrusted()
-        let isInstalledCopy = YSettingRuntimeIdentity.isSignedInstalledCopy(
-            expectedPath: AppBranding.installedApplicationPath,
-            expectedTeamIdentifier: AppBranding.teamIdentifier,
-            expectedBundleIdentifier: AppBranding.bundleIdentifier
-        )
-        let hasInstalledCopy = YSettingRuntimeIdentity.isValidSignedApplication(
-            atPath: AppBranding.installedApplicationPath,
-            expectedBundleIdentifier: AppBranding.bundleIdentifier,
-            expectedTeamIdentifier: AppBranding.teamIdentifier
-        )
-        let warningState = PermissionWarningState(
-            accessibilityTrusted: accessibilityTrusted,
-            inputMonitoringTrusted: inputMonitoringTrusted,
-            isInstalledCopy: isInstalledCopy,
-            hasInstalledCopy: hasInstalledCopy
-        )
-        guard warningState != lastPresentedPermissionWarningState else { return }
-        lastPresentedPermissionWarningState = warningState
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.lastPresentedPermissionWarningState == warningState else { return }
-            NSApp.activate(ignoringOtherApps: true)
-
-            let alert = NSAlert()
-            alert.alertStyle = .informational
-
-            if !isInstalledCopy, hasInstalledCopy {
-                alert.messageText = "当前运行副本与系统授权不匹配"
-                alert.informativeText = "\(message)\n\n系统权限会绑定 App 的签名身份和启动副本。请切换到 \(AppBranding.installedApplicationPath)，不要直接运行 DerivedData 或可执行文件。"
-                alert.addButton(withTitle: "切换到安装版")
-                alert.addButton(withTitle: "打开权限设置")
-                alert.addButton(withTitle: "稍后")
-
-                switch alert.runModal() {
-                case .alertFirstButtonReturn:
-                    do {
-                        try YSettingRuntimeIdentity.relaunchInstalledApplication(
-                            atPath: AppBranding.installedApplicationPath,
-                            expectedBundleIdentifier: AppBranding.bundleIdentifier,
-                            expectedTeamIdentifier: AppBranding.teamIdentifier
-                        )
-                    } catch {
-                        self.showPlainAlert(title: "无法切换到正式安装版", message: error.localizedDescription)
+        return [
+            YPermissionPromptDescriptor(
+                identifier: "accessibility",
+                displayName: "辅助功能权限",
+                explanation: "用于读取当前 App 的菜单和快捷键。",
+                settingsLocation: "System Settings → Privacy & Security → Accessibility",
+                state: {
+                    AccessibilityPermission.isTrusted(prompt: false)
+                        ? .granted
+                        : .missing
+                },
+                requestAction: YPermissionPromptAction(
+                    title: "打开辅助功能",
+                    perform: {
+                        AccessibilityPermission.requestPrompt()
+                        AccessibilityPermission.openSettings()
                     }
-                case .alertSecondButtonReturn:
-                    self.openMissingPermissionSettings(
-                        accessibilityTrusted: accessibilityTrusted,
-                        inputMonitoringTrusted: inputMonitoringTrusted
-                    )
-                default:
-                    break
-                }
-                return
-            }
-
-            if !accessibilityTrusted && !inputMonitoringTrusted {
-                alert.messageText = "Y-Keys 需要辅助功能和输入监控权限"
-                alert.informativeText = "\(message)\n\n请在 System Settings → Privacy & Security 中分别开启 Accessibility 和 Input Monitoring。"
-                alert.addButton(withTitle: "打开辅助功能")
-                alert.addButton(withTitle: "打开输入监控")
-                alert.addButton(withTitle: "稍后")
-
-                switch alert.runModal() {
-                case .alertFirstButtonReturn:
-                    AccessibilityPermission.requestPrompt()
-                    AccessibilityPermission.openSettings()
-                case .alertSecondButtonReturn:
-                    AccessibilityPermission.requestInputMonitoring()
-                    AccessibilityPermission.openInputMonitoringSettings()
-                default:
-                    break
-                }
-            } else if !accessibilityTrusted {
-                alert.messageText = "Y-Keys 需要辅助功能权限"
-                alert.informativeText = "\(message)\n\n路径：System Settings → Privacy & Security → Accessibility。"
-                alert.addButton(withTitle: "打开辅助功能")
-                alert.addButton(withTitle: "稍后")
-                if alert.runModal() == .alertFirstButtonReturn {
-                    AccessibilityPermission.requestPrompt()
-                    AccessibilityPermission.openSettings()
-                }
-            } else if !inputMonitoringTrusted {
-                alert.messageText = "Y-Keys 需要输入监控权限"
-                alert.informativeText = "\(message)\n\n路径：System Settings → Privacy & Security → Input Monitoring。"
-                alert.addButton(withTitle: "打开输入监控")
-                alert.addButton(withTitle: "稍后")
-                if alert.runModal() == .alertFirstButtonReturn {
-                    AccessibilityPermission.requestInputMonitoring()
-                    AccessibilityPermission.openInputMonitoringSettings()
-                }
-            } else {
-                alert.messageText = "权限需要重新载入"
-                alert.informativeText = "辅助功能和输入监控均显示已开启，但当前进程仍无法监听键盘。请从 \(AppBranding.installedApplicationPath) 重启正式安装版；若仍失败，可在设置的权限页刷新 Y-Keys 的权限记录。"
-                alert.addButton(withTitle: "重启 Y-Keys")
-                alert.addButton(withTitle: "打开输入监控")
-                alert.addButton(withTitle: "稍后")
-
-                switch alert.runModal() {
-                case .alertFirstButtonReturn:
-                    do {
-                        try YSettingRuntimeIdentity.relaunchInstalledApplication(
-                            atPath: AppBranding.installedApplicationPath,
-                            expectedBundleIdentifier: AppBranding.bundleIdentifier,
-                            expectedTeamIdentifier: AppBranding.teamIdentifier
-                        )
-                    } catch {
-                        self.showPlainAlert(title: "无法重启正式安装版", message: error.localizedDescription)
+                ),
+                openSettingsAction: YPermissionPromptAction(
+                    title: "打开辅助功能",
+                    perform: {
+                        AccessibilityPermission.openSettings()
                     }
-                case .alertSecondButtonReturn:
-                    AccessibilityPermission.openInputMonitoringSettings()
-                default:
-                    break
-                }
-            }
-        }
+                )
+            ),
+            YPermissionPromptDescriptor(
+                identifier: "input-monitoring",
+                displayName: "输入监控权限",
+                explanation: "用于识别双击左 Command 和显示修饰键状态。",
+                settingsLocation: "System Settings → Privacy & Security → Input Monitoring",
+                state: {
+                    AccessibilityPermission.isInputMonitoringTrusted()
+                        ? .granted
+                        : .missing
+                },
+                requestAction: YPermissionPromptAction(
+                    title: "打开输入监控",
+                    perform: {
+                        AccessibilityPermission.requestInputMonitoring()
+                        AccessibilityPermission.openInputMonitoringSettings()
+                    }
+                ),
+                openSettingsAction: YPermissionPromptAction(
+                    title: "打开输入监控",
+                    perform: {
+                        AccessibilityPermission.openInputMonitoringSettings()
+                    }
+                )
+            ),
+            YPermissionPromptDescriptor(
+                identifier: "keyboard-listener",
+                displayName: "键盘监听",
+                explanation: "辅助功能和输入监控均显示已开启，但当前进程仍无法监听键盘。",
+                settingsLocation: "System Settings → Privacy & Security → Input Monitoring",
+                state: { [weak self] in
+                    guard accessibilityTrusted, inputMonitoringTrusted else {
+                        return .granted
+                    }
+                    return self?.keyboardMonitor.isRunning == true
+                        ? .granted
+                        : .restartRequired
+                },
+                openSettingsAction: YPermissionPromptAction(
+                    title: "打开输入监控",
+                    perform: {
+                        AccessibilityPermission.openInputMonitoringSettings()
+                    }
+                ),
+                restartAction: YPermissionPromptAction(
+                    title: "重启 Y-Keys",
+                    perform: { [weak self] in
+                        self?.relaunchInstalledApplication()
+                    }
+                )
+            )
+        ]
     }
 
-    private func openMissingPermissionSettings(accessibilityTrusted: Bool, inputMonitoringTrusted: Bool) {
-        if !accessibilityTrusted {
-            AccessibilityPermission.requestPrompt()
-            AccessibilityPermission.openSettings()
-        } else if !inputMonitoringTrusted {
-            AccessibilityPermission.requestInputMonitoring()
-            AccessibilityPermission.openInputMonitoringSettings()
-        } else {
-            AccessibilityPermission.openInputMonitoringSettings()
+    private var permissionRuntimeDescriptor: YPermissionRuntimeDescriptor {
+        YPermissionRuntimeDescriptor(
+            installedApplicationPath: AppBranding.installedApplicationPath,
+            isRunningPreferredCopy: {
+                YSettingRuntimeIdentity.isSignedInstalledCopy(
+                    expectedPath: AppBranding.installedApplicationPath,
+                    expectedTeamIdentifier: AppBranding.teamIdentifier,
+                    expectedBundleIdentifier: AppBranding.bundleIdentifier
+                )
+            },
+            hasPreferredCopy: {
+                YSettingRuntimeIdentity.isValidSignedApplication(
+                    atPath: AppBranding.installedApplicationPath,
+                    expectedBundleIdentifier: AppBranding.bundleIdentifier,
+                    expectedTeamIdentifier: AppBranding.teamIdentifier
+                )
+            },
+            switchAction: YPermissionPromptAction(
+                title: "切换到安装版",
+                perform: { [weak self] in
+                    self?.relaunchInstalledApplication()
+                }
+            )
+        )
+    }
+
+    private func showPermissionWarningIfNeeded(message: String) {
+        permissionPromptCoordinator.presentMissingPermissionIfNeeded(
+            permissions: permissionDescriptors,
+            runtime: permissionRuntimeDescriptor,
+            reason: message
+        )
+    }
+
+    private func relaunchInstalledApplication() {
+        do {
+            try YSettingRuntimeIdentity.relaunchInstalledApplication(
+                atPath: AppBranding.installedApplicationPath,
+                expectedBundleIdentifier: AppBranding.bundleIdentifier,
+                expectedTeamIdentifier: AppBranding.teamIdentifier
+            )
+        } catch {
+            showPlainAlert(
+                title: "无法重启正式安装版",
+                message: error.localizedDescription
+            )
         }
     }
 

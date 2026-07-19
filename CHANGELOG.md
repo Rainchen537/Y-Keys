@@ -2,6 +2,12 @@
 
 All notable Y-Keys release changes are tracked here.
 
+## v0.1.3 - 2026-07-19
+
+- Unified first-launch and later Accessibility, Input Monitoring, and keyboard-listener guidance through the shared Y-Project permission prompt framework, with sequential state progression and duplicate suppression.
+- Replaced the project-specific DMG layout code with the shared Y-Project DMG framework, which dynamically renders the product name and validates the saved Finder background, Applications link, and icon layout.
+- Relaunches now use LaunchServices without forcing a second app instance.
+
 ## v0.1.2 - 2026-07-18
 
 - Fixed “显示快捷键” in Settings so it tracks the most recently activated external app, never scans Y-Keys itself, and discards terminated targets.

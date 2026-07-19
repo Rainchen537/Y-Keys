@@ -36,7 +36,7 @@
 
 下载安装包：
 
-1. 前往 [Releases](https://github.com/Rainchen537/Y-Keys/releases/latest) 下载最新 [`Y-Keys-v0.1.2.dmg`](https://github.com/Rainchen537/Y-Keys/releases/download/v0.1.2/Y-Keys-v0.1.2.dmg)。
+1. 前往 [Releases](https://github.com/Rainchen537/Y-Keys/releases/latest) 下载最新 [`Y-Keys-v0.1.3.dmg`](https://github.com/Rainchen537/Y-Keys/releases/download/v0.1.3/Y-Keys-v0.1.3.dmg)。
 2. 打开 DMG。
 3. 将 `Y-Keys.app` 拖到 `Applications`。
 4. 启动后按提示开启辅助功能与输入监控权限。
@@ -85,7 +85,8 @@ System Settings
 ```
 
 - 权限页会分别显示两项权限的状态，并提供独立的请求与系统设置入口。
-- 从系统设置返回 Y-Keys 时，App 会重新检测两项权限；若键盘监听尚未运行，会自动重试启动。
+- 首次启动会汇总仍需完成的权限；后续从系统设置返回 Y-Keys 时会重新检测并按顺序提示当前第一项未完成步骤，完全相同的运行副本与权限状态不会重复弹窗。
+- 若键盘监听尚未运行，App 会自动重试启动；两项 TCC 权限已开启但当前进程仍无法监听时，会提示重启正式安装版。
 - 权限页也会验证当前副本是否为 `/Applications/Y-Keys.app` 中 Bundle ID 与 Developer ID 团队签名均匹配的正式安装版；开发副本可直接切换到验证通过的安装版。
 - 如果系统设置里显示已授权但 App 仍无法监听，可点击 **「刷新记录」**，或运行 `./reset_accessibility.sh`。两种方式都只会重置 Y-Keys 自身 Bundle ID 的 Accessibility 与 Input Monitoring TCC 记录，并在重新授权后从 `/Applications` 启动正式安装版。
 
