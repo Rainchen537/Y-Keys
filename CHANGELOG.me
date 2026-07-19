@@ -17,6 +17,11 @@
 - `release.sh` 先检查公证凭据和清理同版本旧产物，再校验构建后的版本/构建号、严格验证 App/DMG stapled ticket，并通过临时目录原子生成版本化 Release DMG。公证等待连接中断但已取得 submission ID 时，改用内建 `notarytool wait` 继续等待最终状态，避免手工轮询、固定超时误判和重复提交；退出清理改用显式条件，避免 zsh `ERR_EXIT` 在空路径判断处提前终止。
 - 准备发布 `v0.1.4`，版本号为 `CFBundleShortVersionString=0.1.4`、`CFBundleVersion=5`；README、公开 changelog 和设计维护说明已同步。
 - 基于最终源码运行 `release.sh` 成功完成 App/DMG 双公证与双装订：App 公证 ID 为 `73aa83c3-0cf4-4dbb-8ed4-2db52d484047`，DMG 公证 ID 为 `0ab29774-daa4-41d9-8ff8-3a6da7600a37`；最终 `Y-Keys-v0.1.4.dmg` SHA256 为 `c72777604f54ded21f5e60845edadb8725a916669bed1dc6ffc94758fc4577de`，严格签名、Gatekeeper、stapler 与 `hdiutil verify` 均通过。
+- 完成 `v0.1.4` 发布闭环：源码提交 `a4214fcd516a21ba3be0e3d790d2f6d3bfb76572`、tag `v0.1.4`、Release `https://github.com/Rainchen537/Y-Keys/releases/tag/v0.1.4`。GitHub Release 的 tag、标题 `Y-Keys v0.1.4`、真实换行 release notes、资产 `Y-Keys-v0.1.4.dmg`、下载链接和 asset digest 均已复核，远端 digest 与本地 SHA256 完全一致。
+- 从最终 DMG 覆盖安装到 `/Applications/Y-Keys.app` 并启动；确认正式安装版为 `0.1.4 (5)`、`LSUIElement=true`、Bundle ID `com.lixingchen.YKeys`、Developer ID 团队 `A94225N8T5`，hardened runtime、严格 codesign、App/DMG stapled ticket、Gatekeeper 与 DMG 镜像校验全部通过，且只运行一个 `YKeys` 进程。
+- 菜单栏中的新版透明 template 图标已在真实菜单栏复查；安装版权限页显示“正式安装版”、辅助功能和输入监控均“已开启”、键盘监听“运行中”，更新入口显示 `v0.1.4`，无效预览 identifier 会回退到“通用”并保持 sidebar 选中一致。
+- 使用真实 `CGEvent` 与包含 152 条应用快捷键的 Probe App 验证安装版：双击左 Command 可呼出浮层，右侧系统分组保持完整；只按 Command 时 `Command-Z` 与 `Command-Shift-Z` 同时作为候选高亮，继续按 Shift 后前者恢复暗态、后者保持高亮，快捷键名称与键帽同步使用强调色。
+- Probe App 含 Esc 快捷键时，第一次 Esc 保持浮层并显示“再次按下 Esc 退出”，第二次 Esc 关闭；Probe 的 Esc 事件日志未生成，确认浮层吞掉了 Esc key-down、自动重复和对应 key-up，底层 App 未收到事件。
 
 ## 2026-07-19
 
