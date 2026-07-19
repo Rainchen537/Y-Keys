@@ -12,6 +12,8 @@
 - 移除旧的项目专用 `icon/DmgBgGen.swift` 和 `icon/dmg_bg.png`，避免共享框架接入后继续维护重复实现。
 - 正式安装版重启改为通过 LaunchServices 打开精确 App 路径，不再使用会强制新实例的 `open -n`。
 - 通过共享框架独立编译、Y-Keys 完整构建、DMG 生成与背景/布局截图检查；准备发布 `v0.1.3`，版本号为 `CFBundleShortVersionString=0.1.3`、`CFBundleVersion=4`。
+- 完成 `v0.1.3` 发布闭环：源码提交 `88a499377a36432a64983119b7e8226636b0ae41`、tag `v0.1.3`、Release `https://github.com/Rainchen537/Y-Keys/releases/tag/v0.1.3`；最终 `Y-Keys-v0.1.3.dmg` SHA256 为 `0f59a1d82ca387699c96e1668cc868697fe46ce04d8f5ae607fc9ae723c298e3`，GitHub asset 名称、下载链接和 digest 已核对一致，App 公证 ID 为 `f8286ac9-9e12-4a61-a1ed-ba00743194a8`，DMG 公证 ID 为 `f13c4d74-df37-41e4-a79a-fbb5c35288a5`。
+- 从上述最终 DMG 覆盖安装到 `/Applications/Y-Keys.app` 并通过 LaunchServices 启动；确认版本 `0.1.3 (4)`、Bundle ID `com.lixingchen.YKeys`、Developer ID 团队 `A94225N8T5`、hardened runtime、严格 codesign、App/DMG stapled ticket 与 Gatekeeper 均通过，且只运行一个 `YKeys` 进程。安装版权限页显示“正式安装版”、辅助功能与输入监控均“已开启”、键盘监听“运行中”；真实双击左 Command 可扫描当前 TextEdit 菜单并显示快捷键浮层，按住 Command 时只有 Command 键帽高亮，浮层在当前显示器可用区域内完整显示且无滚动条。
 
 ## 2026-07-18
 
