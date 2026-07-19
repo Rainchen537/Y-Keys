@@ -2,6 +2,15 @@
 
 All notable Y-Keys release changes are tracked here.
 
+## v0.1.4 - 2026-07-20
+
+- Redesigned the app icon as a compact shortcut deck with modifier keys, a wide Command key, and an offset layer that communicates the double-Command trigger while matching the Y-Project visual family.
+- Replaced the menu bar mark with a transparent template icon built from two offset keycap outlines and a Command symbol for clearer light/dark menu bar rendering.
+- Made modifier highlighting exact: pressing Command still shows both Command-Z and Command-Shift-Z candidates, while adding Shift immediately dims combinations that do not include Shift; matching shortcut names and subtitles now highlight with their keycaps.
+- Fixed dense application shortcut lists so calculated lane widths cannot expand and push the System group off the right side of the overlay.
+- Added safe Escape dismissal: overlays with an Escape shortcut require a second press within 1.2 seconds, show a first-press hint, and consume both Escape key-down and key-up events so the underlying app is unaffected.
+- Regenerates icon assets before each build, verifies a strict metadata-free copy in File Provider-managed workspaces, retries busy DMG detach operations, and verifies the stapled app again from the final mounted DMG.
+
 ## v0.1.3 - 2026-07-19
 
 - Unified first-launch and later Accessibility, Input Monitoring, and keyboard-listener guidance through the shared Y-Project permission prompt framework, with sequential state progression and duplicate suppression.

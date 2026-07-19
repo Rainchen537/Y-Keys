@@ -10,6 +10,12 @@ private enum OverlayMetrics {
 
 private struct OverlayLayout {
     let scale: CGFloat
+    let constrainedLaneWidth: CGFloat?
+
+    init(scale: CGFloat, constrainedLaneWidth: CGFloat? = nil) {
+        self.scale = scale
+        self.constrainedLaneWidth = constrainedLaneWidth
+    }
 
     var groupHeaderHeight: CGFloat { 54 * scale }
     var groupSpacing: CGFloat { 14 * scale }
@@ -20,8 +26,8 @@ private struct OverlayLayout {
     var sectionHeaderHeight: CGFloat { 36 * scale }
     var rowCornerRadius: CGFloat { 8 * scale }
     var headerCornerRadius: CGFloat { 7 * scale }
-    var comboWidth: CGFloat { max(92, 178 * scale) }
-    var laneMinWidth: CGFloat { max(178, 304 * scale) }
+    var laneWidth: CGFloat { constrainedLaneWidth ?? max(148, 304 * scale) }
+    var comboWidth: CGFloat { min(max(78, 178 * scale), laneWidth * 0.58) }
     var titleFontSize: CGFloat { max(8.5, 15 * scale) }
     var subtitleFontSize: CGFloat { max(7, 10.5 * scale) }
     var sectionFontSize: CGFloat { max(8.5, 15 * scale) }
@@ -60,17 +66,50 @@ private final class OverlayRootView: NSVisualEffectView {
     }
 }
 
+private final class EscapeHintView: NSView {
+    private let label = NSTextField(labelWithString: "再次按下 Esc 退出")
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.cornerRadius = 18
+        layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.94).cgColor
+        translatesAutoresizingMaskIntoConstraints = false
+
+        label.font = .systemFont(ofSize: 13, weight: .semibold)
+        label.textColor = .white
+        label.alignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: 210),
+            heightAnchor.constraint(equalToConstant: 36),
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+}
+
 private final class ShortcutRowView: NSView {
     private let comboStack = NSStackView()
     private let titleLabel = NSTextField(labelWithString: "")
     private let subtitleLabel = NSTextField(labelWithString: "")
     private let onClick: () -> Void
+    private let isEnabled: Bool
 
     var combo: KeyCombo
     private var tokenViews: [KeyTokenView] = []
+    private var isMatchingPressedSymbols = false
 
     init(item: ShortcutItem, layout: OverlayLayout, onClick: @escaping () -> Void) {
         self.combo = item.combo
+        self.isEnabled = item.isEnabled
         self.onClick = onClick
         super.init(frame: .zero)
 
@@ -102,6 +141,7 @@ private final class ShortcutRowView: NSView {
         titleLabel.textColor = item.isEnabled ? .labelColor : .secondaryLabelColor
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.maximumNumberOfLines = 1
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         subtitleLabel.stringValue = item.subtitle ?? ""
         subtitleLabel.font = .systemFont(ofSize: layout.subtitleFontSize, weight: .regular)
@@ -109,6 +149,7 @@ private final class ShortcutRowView: NSView {
         subtitleLabel.lineBreakMode = .byTruncatingTail
         subtitleLabel.maximumNumberOfLines = 1
         subtitleLabel.isHidden = item.subtitle == nil
+        subtitleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         textStack.addArrangedSubview(titleLabel)
         textStack.addArrangedSubview(subtitleLabel)
@@ -142,15 +183,24 @@ private final class ShortcutRowView: NSView {
     }
 
     func updatePressedSymbols(_ symbols: Set<String>) {
+        isMatchingPressedSymbols = isEnabled && combo.matchesPressedSymbols(symbols)
         for token in tokenViews {
-            token.isHighlighted = symbols.contains(KeyCombo.normalizedSymbol(token.text))
+            token.isHighlighted = isMatchingPressedSymbols
+                && symbols.contains(KeyCombo.normalizedSymbol(token.text))
         }
+        updateAppearance()
     }
 
     private func updateAppearance() {
-        layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.035).cgColor
-        titleLabel.textColor = .labelColor
-        subtitleLabel.textColor = .tertiaryLabelColor
+        layer?.backgroundColor = isMatchingPressedSymbols
+            ? NSColor.controlAccentColor.withAlphaComponent(0.14).cgColor
+            : NSColor.labelColor.withAlphaComponent(0.035).cgColor
+        titleLabel.textColor = isMatchingPressedSymbols
+            ? .controlAccentColor
+            : (isEnabled ? .labelColor : .secondaryLabelColor)
+        subtitleLabel.textColor = isMatchingPressedSymbols
+            ? NSColor.controlAccentColor.withAlphaComponent(0.76)
+            : .tertiaryLabelColor
     }
 }
 
@@ -276,6 +326,7 @@ private final class ColumnHeaderView: NSView {
         label.textColor = .labelColor
         label.alignment = .center
         label.lineBreakMode = .byTruncatingTail
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         stack.addArrangedSubview(label)
 
         NSLayoutConstraint.activate([
@@ -295,9 +346,13 @@ final class ShortcutOverlayController {
     private let panel: ShortcutOverlayPanel
     private let rootView = OverlayRootView()
     private let contentStack = NSStackView()
+    private let escapeHintView = EscapeHintView()
     private var rowViews: [ShortcutRowView] = []
     private var rowViewsByID: [UUID: ShortcutRowView] = [:]
     private var currentCatalog: ShortcutCatalog?
+    private var escapeDismissalState = EscapeDismissalState()
+    private var escapeHintWorkItem: DispatchWorkItem?
+    private var requiresEscapeConfirmation = false
     private var localMouseMonitor: Any?
     private var globalMouseMonitor: Any?
 
@@ -338,18 +393,28 @@ final class ShortcutOverlayController {
         contentStack.translatesAutoresizingMaskIntoConstraints = false
         rootView.addSubview(contentStack)
 
+        escapeHintView.isHidden = true
+        escapeHintView.alphaValue = 0
+        rootView.addSubview(escapeHintView)
+
         NSLayoutConstraint.activate([
-            contentStack.leadingAnchor.constraint(equalTo: rootView.leadingAnchor, constant: OverlayMetrics.panelInset),
-            contentStack.trailingAnchor.constraint(equalTo: rootView.trailingAnchor, constant: -OverlayMetrics.panelInset),
+            contentStack.leadingAnchor.constraint(greaterThanOrEqualTo: rootView.leadingAnchor, constant: OverlayMetrics.panelInset),
+            contentStack.trailingAnchor.constraint(lessThanOrEqualTo: rootView.trailingAnchor, constant: -OverlayMetrics.panelInset),
+            contentStack.centerXAnchor.constraint(equalTo: rootView.centerXAnchor),
             contentStack.topAnchor.constraint(equalTo: rootView.topAnchor, constant: OverlayMetrics.panelInset),
-            contentStack.bottomAnchor.constraint(equalTo: rootView.bottomAnchor, constant: -OverlayMetrics.panelInset)
+            contentStack.bottomAnchor.constraint(equalTo: rootView.bottomAnchor, constant: -OverlayMetrics.panelInset),
+
+            escapeHintView.centerXAnchor.constraint(equalTo: rootView.centerXAnchor),
+            escapeHintView.bottomAnchor.constraint(equalTo: rootView.bottomAnchor, constant: -16)
         ])
 
         panel.contentView = rootView
     }
 
     func show(catalog: ShortcutCatalog) {
+        resetEscapeConfirmation()
         currentCatalog = catalog
+        requiresEscapeConfirmation = containsEscapeShortcut(in: catalog)
         let size = preferredPanelSize()
         let layout = bestLayout(for: catalog, panelSize: size)
         render(catalog, layout: layout, panelSize: size)
@@ -359,11 +424,13 @@ final class ShortcutOverlayController {
     }
 
     func close() {
+        resetEscapeConfirmation()
         endMouseMonitoring()
         panel.orderOut(nil)
         rowViews.removeAll()
         rowViewsByID.removeAll()
         currentCatalog = nil
+        requiresEscapeConfirmation = false
     }
 
     func updatePressedSymbols(_ symbols: Set<String>) {
@@ -375,12 +442,71 @@ final class ShortcutOverlayController {
         }
     }
 
+    func handleKeyDown(pressedSymbols: Set<String>, key: String) -> Bool {
+        guard panel.isVisible else { return false }
+
+        if KeyCombo.normalizedSymbol(key) == KeyCombo.normalizedSymbol("Esc") {
+            handleEscapePress()
+            return true
+        }
+
+        resetEscapeConfirmation()
+        if !hasShortcutMatching(pressedSymbols) {
+            close()
+        }
+        return false
+    }
+
     func hasShortcutMatching(_ symbols: Set<String>) -> Bool {
         guard !symbols.isEmpty else { return true }
         let normalized = Set(symbols.map(KeyCombo.normalizedSymbol))
         return rowViews.contains { row in
-            row.combo.containsPressedSymbols(normalized)
+            row.combo.matchesPressedSymbols(normalized)
         }
+    }
+
+    private func handleEscapePress() {
+        let result = escapeDismissalState.registerPress(
+            requiresConfirmation: requiresEscapeConfirmation,
+            at: ProcessInfo.processInfo.systemUptime
+        )
+
+        switch result {
+        case .showHint:
+            showEscapeHint()
+        case .close:
+            close()
+        }
+    }
+
+    private func showEscapeHint() {
+        escapeHintWorkItem?.cancel()
+        escapeHintView.isHidden = false
+        escapeHintView.alphaValue = 1
+
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.resetEscapeConfirmation()
+        }
+        escapeHintWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + escapeDismissalState.confirmationInterval,
+            execute: workItem
+        )
+    }
+
+    private func resetEscapeConfirmation() {
+        escapeHintWorkItem?.cancel()
+        escapeHintWorkItem = nil
+        escapeDismissalState.reset()
+        escapeHintView.alphaValue = 0
+        escapeHintView.isHidden = true
+    }
+
+    private func containsEscapeShortcut(in catalog: ShortcutCatalog) -> Bool {
+        let escape = KeyCombo.normalizedSymbol("Esc")
+        return (catalog.appSections + catalog.systemSections)
+            .flatMap(\.items)
+            .contains { KeyCombo.normalizedSymbol($0.combo.key) == escape }
     }
 
     private func render(_ catalog: ShortcutCatalog, layout: OverlayLayout, panelSize: NSSize) {
@@ -493,9 +619,9 @@ final class ShortcutOverlayController {
             laneStack.heightAnchor.constraint(lessThanOrEqualToConstant: maxLaneHeight)
         ])
 
-        let minimumWidth = CGFloat(max(1, laneCount)) * layout.laneMinWidth
+        let groupWidth = CGFloat(max(1, laneCount)) * layout.laneWidth
             + CGFloat(max(laneCount - 1, 0)) * layout.laneSpacing
-        container.widthAnchor.constraint(greaterThanOrEqualToConstant: minimumWidth).isActive = true
+        container.widthAnchor.constraint(equalToConstant: groupWidth).isActive = true
 
         return container
     }
@@ -530,7 +656,7 @@ final class ShortcutOverlayController {
             }
         }
 
-        stack.widthAnchor.constraint(greaterThanOrEqualToConstant: layout.laneMinWidth).isActive = true
+        stack.widthAnchor.constraint(equalToConstant: layout.laneWidth).isActive = true
         return stack
     }
 
@@ -554,7 +680,7 @@ final class ShortcutOverlayController {
     }
 
     private func bestLayout(for catalog: ShortcutCatalog, panelSize: NSSize) -> OverlayLayout {
-        let scales = stride(from: CGFloat(1.0), through: CGFloat(0.46), by: CGFloat(-0.04))
+        let scales = stride(from: CGFloat(1.0), through: CGFloat(0.42), by: CGFloat(-0.04))
         for scale in scales {
             let layout = OverlayLayout(scale: scale)
             let maxLaneHeight = panelSize.height
@@ -563,18 +689,57 @@ final class ShortcutOverlayController {
                 - layout.groupSpacing
             let appLaneCount = laneCount(for: catalog.appSections, layout: layout, maxLaneHeight: maxLaneHeight)
             let systemLaneCount = laneCount(for: catalog.systemSections, layout: layout, maxLaneHeight: maxLaneHeight)
-            let totalLanes = appLaneCount + systemLaneCount
-            let requiredWidth = CGFloat(totalLanes) * layout.laneMinWidth
-                + CGFloat(max(appLaneCount - 1, 0) + max(systemLaneCount - 1, 0)) * layout.laneSpacing
-                + OverlayMetrics.columnSpacing * layout.scale
-                + OverlayMetrics.panelInset * 2
-
-            if requiredWidth <= panelSize.width {
+            if requiredWidth(
+                appLaneCount: appLaneCount,
+                systemLaneCount: systemLaneCount,
+                layout: layout
+            ) <= panelSize.width {
                 return layout
             }
         }
 
-        return OverlayLayout(scale: 0.46)
+        let fallback = OverlayLayout(scale: 0.42)
+        let maxLaneHeight = panelSize.height
+            - OverlayMetrics.panelInset * 2
+            - fallback.groupHeaderHeight
+            - fallback.groupSpacing
+        let appLaneCount = laneCount(
+            for: catalog.appSections,
+            layout: fallback,
+            maxLaneHeight: maxLaneHeight
+        )
+        let systemLaneCount = laneCount(
+            for: catalog.systemSections,
+            layout: fallback,
+            maxLaneHeight: maxLaneHeight
+        )
+        let totalLanes = max(1, appLaneCount + systemLaneCount)
+        let laneSpacingWidth = CGFloat(
+            max(appLaneCount - 1, 0) + max(systemLaneCount - 1, 0)
+        ) * fallback.laneSpacing
+        let fixedWidth = laneSpacingWidth
+            + OverlayMetrics.columnSpacing * fallback.scale
+            + OverlayMetrics.panelInset * 2
+        let fittedLaneWidth = max(
+            84,
+            min(fallback.laneWidth, (panelSize.width - fixedWidth) / CGFloat(totalLanes))
+        )
+        return OverlayLayout(
+            scale: fallback.scale,
+            constrainedLaneWidth: fittedLaneWidth
+        )
+    }
+
+    private func requiredWidth(
+        appLaneCount: Int,
+        systemLaneCount: Int,
+        layout: OverlayLayout
+    ) -> CGFloat {
+        let totalLanes = appLaneCount + systemLaneCount
+        return CGFloat(totalLanes) * layout.laneWidth
+            + CGFloat(max(appLaneCount - 1, 0) + max(systemLaneCount - 1, 0)) * layout.laneSpacing
+            + OverlayMetrics.columnSpacing * layout.scale
+            + OverlayMetrics.panelInset * 2
     }
 
     private func laneCount(

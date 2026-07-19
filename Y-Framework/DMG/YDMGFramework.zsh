@@ -62,14 +62,24 @@ y_dmg_build() {
   typeset -g Y_DMG_CLEANUP_MOUNT_TARGET=""
   typeset -g Y_DMG_CLEANUP_VERIFY_TARGET=""
 
+  y_dmg_detach_with_retry() {
+    local target="$1"
+    local attempt
+    for attempt in {1..5}; do
+      if /usr/bin/hdiutil detach "$target" >/dev/null 2>&1; then
+        return 0
+      fi
+      /bin/sleep 1
+    done
+    /usr/bin/hdiutil detach "$target" -force >/dev/null
+  }
+
   cleanup_y_dmg_work() {
     if [[ -n "${Y_DMG_CLEANUP_VERIFY_TARGET:-}" ]]; then
-      /usr/bin/hdiutil detach "$Y_DMG_CLEANUP_VERIFY_TARGET" >/dev/null 2>&1 || \
-        /usr/bin/hdiutil detach "$Y_DMG_CLEANUP_VERIFY_TARGET" -force >/dev/null 2>&1 || true
+      y_dmg_detach_with_retry "$Y_DMG_CLEANUP_VERIFY_TARGET" >/dev/null 2>&1 || true
     fi
     if [[ -n "${Y_DMG_CLEANUP_MOUNT_TARGET:-}" ]]; then
-      /usr/bin/hdiutil detach "$Y_DMG_CLEANUP_MOUNT_TARGET" >/dev/null 2>&1 || \
-        /usr/bin/hdiutil detach "$Y_DMG_CLEANUP_MOUNT_TARGET" -force >/dev/null 2>&1 || true
+      y_dmg_detach_with_retry "$Y_DMG_CLEANUP_MOUNT_TARGET" >/dev/null 2>&1 || true
     fi
     if [[ -n "${Y_DMG_CLEANUP_WORK_ROOT:-}" ]]; then
       /bin/rm -rf "$Y_DMG_CLEANUP_WORK_ROOT"
@@ -160,7 +170,7 @@ y_dmg_build() {
   mounted_target="$(y_dmg_plist_entity_value "$attach_plist" "dev-entry")"
   mount_dir="$(y_dmg_plist_entity_value "$attach_plist" "mount-point")"
   mounted=1
-  typeset -g Y_DMG_CLEANUP_MOUNT_TARGET="$mount_dir"
+  typeset -g Y_DMG_CLEANUP_MOUNT_TARGET="$mounted_target"
 
   /usr/bin/osascript - \
     "$mount_dir" \
@@ -234,7 +244,7 @@ APPLESCRIPT
     /usr/bin/codesign --verify --deep --strict --verbose=2 "$mount_dir/$hidden_name.app"
   done
   /bin/sync
-  /usr/bin/hdiutil detach "$mount_dir" >/dev/null
+  y_dmg_detach_with_retry "$mounted_target"
   mounted=0
   mount_dir=""
   mounted_target=""
@@ -255,7 +265,7 @@ APPLESCRIPT
   verify_target="$(y_dmg_plist_entity_value "$verify_plist" "dev-entry")"
   verify_mount="$(y_dmg_plist_entity_value "$verify_plist" "mount-point")"
   verify_mounted=1
-  typeset -g Y_DMG_CLEANUP_VERIFY_TARGET="$verify_mount"
+  typeset -g Y_DMG_CLEANUP_VERIFY_TARGET="$verify_target"
 
   if [[ ! -d "$verify_mount/$app_item_name" || -L "$verify_mount/$app_item_name" ]]; then
     print -u2 "错误：最终 DMG 缺少有效的 $app_item_name。"
@@ -326,7 +336,7 @@ on run arguments
 end run
 APPLESCRIPT
 
-  /usr/bin/hdiutil detach "$verify_mount" >/dev/null
+  y_dmg_detach_with_retry "$verify_target"
   verify_mounted=0
   verify_mount=""
   verify_target=""

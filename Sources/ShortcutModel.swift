@@ -44,13 +44,70 @@ struct KeyCombo: Hashable {
         Set(displaySegments.map(Self.normalizedSymbol))
     }
 
-    func containsPressedSymbols(_ symbols: Set<String>) -> Bool {
+    var modifierSymbols: Set<String> {
+        Set(modifiers.map { Self.normalizedSymbol($0.symbol) })
+    }
+
+    func matchesPressedSymbols(_ symbols: Set<String>) -> Bool {
         guard !symbols.isEmpty else { return false }
-        return symbols.isSubset(of: matchSymbols)
+
+        let normalized = Set(symbols.map(Self.normalizedSymbol))
+        let knownModifierSymbols = Set(
+            KeyModifier.allCases.map { Self.normalizedSymbol($0.symbol) }
+        )
+        let pressedModifiers = normalized.intersection(knownModifierSymbols)
+        let pressedKeys = normalized.subtracting(knownModifierSymbols)
+
+        guard pressedModifiers.isSubset(of: modifierSymbols) else {
+            return false
+        }
+
+        if pressedKeys.isEmpty {
+            return !pressedModifiers.isEmpty
+        }
+
+        return pressedModifiers == modifierSymbols
+            && pressedKeys == [Self.normalizedSymbol(key)]
     }
 
     static func normalizedSymbol(_ symbol: String) -> String {
         symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    }
+}
+
+enum EscapePressResult: Equatable {
+    case showHint
+    case close
+}
+
+struct EscapeDismissalState {
+    let confirmationInterval: TimeInterval
+    private(set) var confirmationDeadline: TimeInterval?
+
+    init(confirmationInterval: TimeInterval = 1.2) {
+        self.confirmationInterval = confirmationInterval
+    }
+
+    mutating func registerPress(
+        requiresConfirmation: Bool,
+        at time: TimeInterval
+    ) -> EscapePressResult {
+        guard requiresConfirmation else {
+            reset()
+            return .close
+        }
+
+        if let confirmationDeadline, time <= confirmationDeadline {
+            reset()
+            return .close
+        }
+
+        confirmationDeadline = time + confirmationInterval
+        return .showHint
+    }
+
+    mutating func reset() {
+        confirmationDeadline = nil
     }
 }
 

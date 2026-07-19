@@ -4,6 +4,20 @@
 
 用户可见发布历史维护在 `CHANGELOG.md`，GitHub Release 需要同步用户可见发布说明。
 
+## 2026-07-20
+
+- 重做 Y-Keys 应用图标：保留 Y-Project 的浅色圆角底板、深靛蓝和紫粉橙渐变，以三枚修饰键、宽 Command 键和半透明错位键盘层表达“快捷键集合”和“双击左 Command”。
+- 通过 `icon/make_icns.sh` 同步生成 `icon/icon_1024.png`、`icon/AppIcon.icns` 和 `docs/icon-256.png`，并完成 1024px、256px 视觉复查。
+- 重做菜单栏图标为透明 `18 x 18` template image：两层错位键帽轮廓结合 Command 符号，避免旧实现中不透明白色区域参与模板着色。
+- 修复修饰键候选高亮：只按 Command 时 `Command-Z` 与 `Command-Shift-Z` 都可作为前缀候选；继续按 Shift 后，`Command-Z` 因缺少 Shift 立即恢复暗态，只有完整兼容的组合继续高亮。候选名称、副标题和已按键帽现在同步使用强调色，普通主键出现后要求修饰键和主键完整匹配。
+- 修复应用快捷键过多时挤压右侧系统分组：每条 lane 与应用/系统容器改用布局计算出的确定宽度，文字降低横向抗压并截断；极端密集数据再按面板宽度收窄 lane。使用 152 条应用快捷键的合成预览确认系统分组仍完整位于右侧且无滚动条。
+- 新增 Esc 安全退出：页面存在 Esc 快捷键时，第一次按下显示“再次按下 Esc 退出”，1.2 秒内第二次退出；不存在时单次退出。键盘监听改为可过滤 event tap，浮层处理的 Esc key-down、自动重复与对应 key-up 都返回 `nil`，不会传给原 App。
+- 新增 `Tests/ShortcutModelTests.swift`，覆盖 Command / Command-Shift 前缀与完整匹配，以及 Esc 首次提示、限时二次退出和超时重置。
+- `build.sh` 在每次构建前从 `IconGen.swift` 同步生成 ICNS 和 README PNG，生成后缺少 ICNS 时直接失败；对临时签名 App 做严格校验，并在 File Provider 立即重建空 FinderInfo 的 Documents 工作区中，对最终内容的无扩展属性临时副本再做严格校验。DMG 框架改为按设备节点重试卸载，解决 Finder 短暂占用返回“资源忙”导致发布中断的问题。
+- `release.sh` 先检查公证凭据和清理同版本旧产物，再校验构建后的版本/构建号、严格验证 App/DMG stapled ticket，并通过临时目录原子生成版本化 Release DMG。公证等待连接中断但已取得 submission ID 时，改用内建 `notarytool wait` 继续等待最终状态，避免手工轮询、固定超时误判和重复提交；退出清理改用显式条件，避免 zsh `ERR_EXIT` 在空路径判断处提前终止。
+- 准备发布 `v0.1.4`，版本号为 `CFBundleShortVersionString=0.1.4`、`CFBundleVersion=5`；README、公开 changelog 和设计维护说明已同步。
+- 基于最终源码运行 `release.sh` 成功完成 App/DMG 双公证与双装订：App 公证 ID 为 `73aa83c3-0cf4-4dbb-8ed4-2db52d484047`，DMG 公证 ID 为 `0ab29774-daa4-41d9-8ff8-3a6da7600a37`；最终 `Y-Keys-v0.1.4.dmg` SHA256 为 `c72777604f54ded21f5e60845edadb8725a916669bed1dc6ffc94758fc4577de`，严格签名、Gatekeeper、stapler 与 `hdiutil verify` 均通过。
+
 ## 2026-07-19
 
 - 接入仓库内 vendored 的 `Y-Framework/Permission`，统一首次启动权限汇总和后续 Accessibility、Input Monitoring、键盘监听提示；共享协调器按运行副本与三项状态生成持久化指纹，状态变化后顺序推进，完全相同的警告不再重复弹出。

@@ -52,23 +52,6 @@ func drawShadowedPath(_ path: NSBezierPath, fill: NSColor, shadowOffset: CGSize,
     ctx.restoreGState()
 }
 
-func strokeGradientBorder(rect: CGRect, radius: CGFloat, strokeWidth: CGFloat, colors: [NSColor]) {
-    ctx.saveGState()
-    let outer = roundedRect(rect, radius)
-    outer.addClip()
-    let inner = roundedRect(rect.insetBy(dx: strokeWidth, dy: strokeWidth), radius - strokeWidth)
-    inner.append(NSBezierPath(rect: rect))
-    inner.windingRule = .evenOdd
-    inner.addClip()
-    drawLinearGradient(
-        colors: colors,
-        in: rect,
-        start: CGPoint(x: 0.08, y: 0.92),
-        end: CGPoint(x: 0.96, y: 0.06)
-    )
-    ctx.restoreGState()
-}
-
 let iconRect = CGRect(x: 88, y: 88, width: 848, height: 848)
 let iconRadius = iconRect.width * 0.225
 let platePath = roundedRect(iconRect, iconRadius)
@@ -106,50 +89,39 @@ let accentColors = [
     NSColor(calibratedRed: 0.98, green: 0.70, blue: 0.43, alpha: 1)
 ]
 
-// Two soft trailing key outlines hint at "double tap" without adding text.
-let ghostKeyRects = [
-    CGRect(x: 228, y: 388, width: 548, height: 360),
-    CGRect(x: 252, y: 354, width: 548, height: 360)
-]
-
-for (index, rect) in ghostKeyRects.enumerated() {
-    let alpha: CGFloat = index == 0 ? 0.22 : 0.34
-    strokeGradientBorder(
-        rect: rect,
-        radius: 92,
-        strokeWidth: 28,
-        colors: accentColors.map { $0.withAlphaComponent(alpha) }
-    )
-}
-
-let keyBaseRect = CGRect(x: 224, y: 244, width: 576, height: 390)
-let sideRect = CGRect(x: keyBaseRect.minX, y: keyBaseRect.minY, width: keyBaseRect.width, height: 116)
-
-drawShadowedPath(
-    roundedRect(CGRect(x: 184, y: 194, width: 656, height: 430), 120),
-    fill: NSColor(white: 0, alpha: 0.0),
-    shadowOffset: CGSize(width: 0, height: -30),
-    shadowBlur: 58,
-    shadowColor: NSColor(white: 0, alpha: 0.28)
+// A translucent offset deck keeps the double-tap idea visible at small sizes.
+let echoRect = CGRect(x: 250, y: 382, width: 560, height: 314)
+let echoPath = roundedRect(echoRect, 96)
+drawLinearGradient(
+    colors: accentColors.map { $0.withAlphaComponent(0.30) },
+    in: echoRect,
+    start: CGPoint(x: 0.06, y: 0.92),
+    end: CGPoint(x: 0.95, y: 0.06),
+    clippedTo: echoPath
 )
 
+let echoSurfaceRect = echoRect.insetBy(dx: 26, dy: 28)
+NSColor(white: 1, alpha: 0.40).setFill()
+roundedRect(echoSurfaceRect, 74).fill()
+
+let chassisRect = CGRect(x: 210, y: 244, width: 604, height: 398)
+let chassisPath = roundedRect(chassisRect, 108)
 drawLinearGradient(
     colors: [
         NSColor(calibratedRed: 0.56, green: 0.38, blue: 0.72, alpha: 1),
-        NSColor(calibratedRed: 0.88, green: 0.36, blue: 0.55, alpha: 1),
-        NSColor(calibratedRed: 0.98, green: 0.62, blue: 0.39, alpha: 1)
+        NSColor(calibratedRed: 0.90, green: 0.37, blue: 0.55, alpha: 1),
+        NSColor(calibratedRed: 0.98, green: 0.64, blue: 0.40, alpha: 1)
     ],
-    in: sideRect,
-    start: CGPoint(x: 0.08, y: 0.90),
+    in: chassisRect,
+    start: CGPoint(x: 0.06, y: 0.92),
     end: CGPoint(x: 0.96, y: 0.08),
-    clippedTo: roundedRect(sideRect, 78)
+    clippedTo: chassisPath
 )
 
-let topKeyRect = CGRect(x: 224, y: 326, width: 576, height: 360)
-let topKeyPath = roundedRect(topKeyRect, 92)
-
+let keyboardRect = CGRect(x: 226, y: 326, width: 572, height: 344)
+let keyboardPath = roundedRect(keyboardRect, 88)
 drawShadowedPath(
-    topKeyPath,
+    keyboardPath,
     fill: NSColor(calibratedRed: 0.985, green: 0.990, blue: 1.000, alpha: 1),
     shadowOffset: CGSize(width: 0, height: -12),
     shadowBlur: 24,
@@ -161,46 +133,94 @@ drawLinearGradient(
         NSColor(calibratedRed: 1.000, green: 1.000, blue: 0.995, alpha: 1),
         NSColor(calibratedRed: 0.925, green: 0.940, blue: 0.970, alpha: 1)
     ],
-    in: topKeyRect,
+    in: keyboardRect,
     start: CGPoint(x: 0.24, y: 0.94),
     end: CGPoint(x: 0.86, y: 0.08),
-    clippedTo: topKeyPath
+    clippedTo: keyboardPath
 )
 
 ctx.saveGState()
-topKeyPath.addClip()
+keyboardPath.addClip()
 NSColor(white: 1, alpha: 0.82).setStroke()
-let highlight = roundedRect(topKeyRect.insetBy(dx: 18, dy: 18), 76)
-highlight.lineWidth = 8
-highlight.stroke()
-
-NSColor(calibratedWhite: 0, alpha: 0.055).setStroke()
-let lowerEdge = NSBezierPath()
-lowerEdge.lineWidth = 8
-lowerEdge.lineCapStyle = .round
-lowerEdge.move(to: CGPoint(x: topKeyRect.minX + 86, y: topKeyRect.minY + 40))
-lowerEdge.line(to: CGPoint(x: topKeyRect.maxX - 86, y: topKeyRect.minY + 40))
-lowerEdge.stroke()
+let keyboardHighlight = roundedRect(keyboardRect.insetBy(dx: 17, dy: 17), 72)
+keyboardHighlight.lineWidth = 8
+keyboardHighlight.stroke()
 ctx.restoreGState()
 
-let commandRect = CGRect(x: topKeyRect.minX, y: topKeyRect.minY + 42, width: topKeyRect.width, height: 260)
-let paragraph = NSMutableParagraphStyle()
-paragraph.alignment = .center
-let commandAttributes: [NSAttributedString.Key: Any] = [
-    .font: NSFont.systemFont(ofSize: 214, weight: .heavy),
-    .foregroundColor: NSColor(calibratedRed: 0.235, green: 0.270, blue: 0.410, alpha: 1),
-    .paragraphStyle: paragraph
-]
-"⌘".draw(in: commandRect, withAttributes: commandAttributes)
+let indigo = NSColor(calibratedRed: 0.235, green: 0.270, blue: 0.410, alpha: 1)
 
-let glowRect = CGRect(x: 318, y: 704, width: 388, height: 18)
-drawLinearGradient(
-    colors: accentColors.map { $0.withAlphaComponent(0.72) },
-    in: glowRect,
-    start: CGPoint(x: 0, y: 0.5),
-    end: CGPoint(x: 1, y: 0.5),
-    clippedTo: roundedRect(glowRect, 9)
-)
+func drawKeycap(_ rect: CGRect, radius: CGFloat) {
+    let path = roundedRect(rect, radius)
+    drawShadowedPath(
+        path,
+        fill: NSColor(calibratedRed: 0.970, green: 0.978, blue: 0.995, alpha: 1),
+        shadowOffset: CGSize(width: 0, height: -7),
+        shadowBlur: 13,
+        shadowColor: NSColor(white: 0, alpha: 0.16)
+    )
+    drawLinearGradient(
+        colors: [
+            NSColor(calibratedRed: 1.000, green: 1.000, blue: 1.000, alpha: 1),
+            NSColor(calibratedRed: 0.920, green: 0.935, blue: 0.968, alpha: 1)
+        ],
+        in: rect,
+        start: CGPoint(x: 0.22, y: 0.94),
+        end: CGPoint(x: 0.84, y: 0.08),
+        clippedTo: path
+    )
+    NSColor(white: 1, alpha: 0.78).setStroke()
+    let inset = roundedRect(rect.insetBy(dx: 8, dy: 8), max(4, radius - 8))
+    inset.lineWidth = 5
+    inset.stroke()
+}
+
+func drawSymbol(_ symbol: String, in rect: CGRect, size: CGFloat, weight: NSFont.Weight, alpha: CGFloat = 1) {
+    let paragraph = NSMutableParagraphStyle()
+    paragraph.alignment = .center
+    let attributes: [NSAttributedString.Key: Any] = [
+        .font: NSFont.systemFont(ofSize: size, weight: weight),
+        .foregroundColor: indigo.withAlphaComponent(alpha),
+        .paragraphStyle: paragraph
+    ]
+    symbol.draw(in: rect, withAttributes: attributes)
+}
+
+let companionKeyRects = [
+    CGRect(x: 288, y: 522, width: 128, height: 92),
+    CGRect(x: 448, y: 522, width: 128, height: 92),
+    CGRect(x: 608, y: 522, width: 128, height: 92)
+]
+
+for rect in companionKeyRects {
+    drawKeycap(rect, radius: 28)
+}
+
+let companionSymbols: [(symbol: String, yOffset: CGFloat, height: CGFloat)] = [
+    ("⌥", 15, 58),
+    ("⇧", 13, 62),
+    ("⌃", 12, 62)
+]
+for (rect, symbol) in zip(companionKeyRects, companionSymbols) {
+    drawSymbol(
+        symbol.symbol,
+        in: CGRect(
+            x: rect.minX,
+            y: rect.minY + symbol.yOffset,
+            width: rect.width,
+            height: symbol.height
+        ),
+        size: 43,
+        weight: .semibold,
+        alpha: 0.76
+    )
+}
+
+let commandKeyRect = CGRect(x: 288, y: 374, width: 448, height: 116)
+drawKeycap(commandKeyRect, radius: 34)
+drawSymbol("⌘", in: CGRect(x: commandKeyRect.minX, y: commandKeyRect.minY + 12, width: commandKeyRect.width, height: 88), size: 78, weight: .heavy)
+
+NSColor(white: 1, alpha: 0.48).setFill()
+roundedRect(CGRect(x: 444, y: 272, width: 136, height: 13), 6.5).fill()
 
 NSGraphicsContext.restoreGraphicsState()
 

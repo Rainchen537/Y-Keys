@@ -26,11 +26,12 @@ final class KeyboardEventMonitor {
 
     var onDoubleTapLeftCommand: (() -> Void)?
     var onInputStateChanged: ((KeyboardInputState) -> Void)?
-    var onKeyDown: ((KeyboardInputState, String) -> Void)?
+    var onKeyDown: ((KeyboardInputState, String) -> Bool)?
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var state = KeyboardInputState()
+    private var suppressedKeyCodes: Set<Int> = []
     private var leftCommandDown = false
     private var leftCommandTapCandidate = false
     private var lastLeftCommandTapAt: TimeInterval = 0
@@ -59,7 +60,7 @@ final class KeyboardEventMonitor {
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
-            options: .listenOnly,
+            options: .defaultTap,
             eventsOfInterest: CGEventMask(mask),
             callback: KeyboardEventMonitor.eventTapCallback,
             userInfo: Unmanaged.passUnretained(self).toOpaque()
@@ -85,22 +86,25 @@ final class KeyboardEventMonitor {
         runLoopSource = nil
         eventTap = nil
         state = KeyboardInputState()
+        suppressedKeyCodes.removeAll()
         leftCommandDown = false
         leftCommandTapCandidate = false
         lastLeftCommandTapAt = 0
         onInputStateChanged?(state)
     }
 
-    private func handle(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) {
+    private func shouldSuppress(type: CGEventType, event: CGEvent) -> Bool {
         switch type {
         case .flagsChanged:
             handleFlagsChanged(event)
+            return false
         case .keyDown:
-            handleKeyDown(event)
+            return handleKeyDown(event)
         case .keyUp:
-            handleKeyUp(event)
+            return handleKeyUp(event)
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
             state = KeyboardInputState()
+            suppressedKeyCodes.removeAll()
             leftCommandDown = false
             leftCommandTapCandidate = false
             lastLeftCommandTapAt = 0
@@ -108,8 +112,9 @@ final class KeyboardEventMonitor {
             if let eventTap {
                 CGEvent.tapEnable(tap: eventTap, enable: true)
             }
+            return false
         default:
-            break
+            return false
         }
     }
 
@@ -133,14 +138,14 @@ final class KeyboardEventMonitor {
         emitStateChanged()
     }
 
-    private func handleKeyDown(_ event: CGEvent) {
+    private func handleKeyDown(_ event: CGEvent) -> Bool {
+        let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
         if event.getIntegerValueField(.keyboardEventAutorepeat) != 0 {
-            return
+            return suppressedKeyCodes.contains(keyCode)
         }
 
-        let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
         guard !modifierKeyCodes.contains(keyCode), let key = KeyCodeDisplay.normalizedDisplayName(for: keyCode) else {
-            return
+            return false
         }
 
         state.pressedKeys.insert(key)
@@ -148,17 +153,24 @@ final class KeyboardEventMonitor {
             leftCommandTapCandidate = false
         }
         emitStateChanged()
-        onKeyDown?(state, key)
+
+        let suppress = onKeyDown?(state, key) == true
+        if suppress {
+            suppressedKeyCodes.insert(keyCode)
+        }
+        return suppress
     }
 
-    private func handleKeyUp(_ event: CGEvent) {
+    private func handleKeyUp(_ event: CGEvent) -> Bool {
         let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
+        let suppress = suppressedKeyCodes.remove(keyCode) != nil
         guard !modifierKeyCodes.contains(keyCode), let key = KeyCodeDisplay.normalizedDisplayName(for: keyCode) else {
-            return
+            return suppress
         }
 
         state.pressedKeys.remove(key)
         emitStateChanged()
+        return suppress
     }
 
     private func registerLeftCommandTapIfNeeded() {
@@ -210,10 +222,12 @@ final class KeyboardEventMonitor {
         Int(kVK_CapsLock)
     ])
 
-    private static let eventTapCallback: CGEventTapCallBack = { proxy, type, event, userInfo in
+    private static let eventTapCallback: CGEventTapCallBack = { _, type, event, userInfo in
         guard let userInfo else { return Unmanaged.passUnretained(event) }
         let monitor = Unmanaged<KeyboardEventMonitor>.fromOpaque(userInfo).takeUnretainedValue()
-        monitor.handle(proxy: proxy, type: type, event: event)
+        if monitor.shouldSuppress(type: type, event: event) {
+            return nil
+        }
         return Unmanaged.passUnretained(event)
     }
 }

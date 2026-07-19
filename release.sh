@@ -6,18 +6,41 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Y-Keys"
+VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT_DIR/Info.plist")"
+BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$ROOT_DIR/Info.plist")"
 BUILD_APP_PATH="$ROOT_DIR/build/$APP_NAME.app"
 RELEASE_WORK="$(mktemp -d /tmp/Y-Keys-release.XXXXXX)"
 APP_PATH="$RELEASE_WORK/$APP_NAME.app"
 DMG_PATH="$ROOT_DIR/dist/$APP_NAME.dmg"
+VERSIONED_DMG_PATH="$ROOT_DIR/dist/$APP_NAME-v$VERSION.dmg"
 NOTARY_PROFILE="${NOTARY_PROFILE:-y-dock-notary}"
 SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-}"
 VERIFY_MOUNT=""
+VERSIONED_DMG_TEMP=""
+VERSIONED_DMG_TEMP_DIR=""
+
+detach_with_retry() {
+  local target="$1"
+  local attempt
+  for attempt in {1..5}; do
+    if hdiutil detach "$target" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  hdiutil detach "$target" -force >/dev/null
+}
 
 cleanup() {
   if [[ -n "$VERIFY_MOUNT" ]]; then
-    hdiutil detach "$VERIFY_MOUNT" >/dev/null 2>&1 || hdiutil detach "$VERIFY_MOUNT" -force >/dev/null 2>&1 || true
+    detach_with_retry "$VERIFY_MOUNT" >/dev/null 2>&1 || true
     rm -rf "$VERIFY_MOUNT"
+  fi
+  if [[ -n "$VERSIONED_DMG_TEMP" ]]; then
+    rm -f "$VERSIONED_DMG_TEMP"
+  fi
+  if [[ -n "$VERSIONED_DMG_TEMP_DIR" ]]; then
+    rm -rf "$VERSIONED_DMG_TEMP_DIR"
   fi
   rm -rf "$RELEASE_WORK"
 }
@@ -34,6 +57,8 @@ if [[ -z "$SIGN_IDENTITY" ]]; then
   exit 1
 fi
 
+mkdir -p "$ROOT_DIR/dist"
+
 bold "▶ 0/7 检查公证凭据…"
 if ! xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
   cat >&2 <<EOF
@@ -46,30 +71,60 @@ EOF
   exit 1
 fi
 echo "  ✓ 凭据就绪：$NOTARY_PROFILE"
+rm -f "$DMG_PATH" "$VERSIONED_DMG_PATH"
 
 notarize() {
   local target="$1"
   local log
-  log="$(mktemp)"
-  if ! xcrun notarytool submit "$target" \
+  local sid=""
+  log="$(mktemp "$RELEASE_WORK/notary.XXXXXX")"
+
+  if xcrun notarytool submit "$target" \
         --keychain-profile "$NOTARY_PROFILE" \
         --wait 2>&1 | tee "$log"; then
-    echo "✗ 公证提交失败：$target" >&2
-    rm -f "$log"
-    return 1
+    sid="$(awk '/^[[:space:]]*id:/ { print $2; exit }' "$log")"
+    if grep -q "status: Accepted" "$log"; then
+      rm -f "$log"
+      return 0
+    fi
+  else
+    sid="$(awk '/^[[:space:]]*id:/ { print $2; exit }' "$log")"
+    if [[ -n "$sid" ]]; then
+      echo "  ! 等待连接中断，改用 notarytool wait：$sid"
+      if xcrun notarytool wait "$sid" \
+            --keychain-profile "$NOTARY_PROFILE" \
+            2>&1 | tee -a "$log" && \
+          grep -q "status: Accepted" "$log"; then
+        rm -f "$log"
+        return 0
+      fi
+    fi
   fi
 
-  local sid
-  sid="$(grep -m1 -E "^[[:space:]]*id:" "$log" | awk '{print $2}')"
-  if ! grep -q "status: Accepted" "$log"; then
-    echo "✗ 公证未通过：$target" >&2
-    [[ -n "$sid" ]] && xcrun notarytool log "$sid" --keychain-profile "$NOTARY_PROFILE" >&2 || true
-    rm -f "$log"
+  if [[ -z "$sid" ]]; then
+    echo "✗ 公证提交失败且没有返回 submission ID：$target" >&2
+  else
+    echo "✗ 公证未通过或等待失败：$target（$sid）" >&2
+    xcrun notarytool info "$sid" \
+      --keychain-profile "$NOTARY_PROFILE" >&2 || true
+    xcrun notarytool log "$sid" \
+      --keychain-profile "$NOTARY_PROFILE" >&2 || true
+  fi
+  return 1
+}
+
+validate_staple() {
+  local target="$1"
+  local output
+  if ! output="$(xcrun stapler validate "$target" 2>&1)"; then
+    print -u2 -- "$output"
     return 1
   fi
-
-  rm -f "$log"
-  return 0
+  print -r -- "$output"
+  if [[ "$output" != *"The validate action worked!"* ]]; then
+    echo "✗ 未检测到有效的 stapled ticket：$target" >&2
+    return 1
+  fi
 }
 
 bold "▶ 1/7 构建并签名 app…"
@@ -77,9 +132,19 @@ CODE_SIGN_IDENTITY="$SIGN_IDENTITY" RELEASE=1 "$ROOT_DIR/build.sh"
 rm -rf "$APP_PATH"
 ditto --noextattr --noqtn "$BUILD_APP_PATH" "$APP_PATH"
 xattr -cr "$APP_PATH"
+BUILT_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Contents/Info.plist")"
+BUILT_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_PATH/Contents/Info.plist")"
+if [[ "$BUILT_VERSION" != "$VERSION" || "$BUILT_BUILD" != "$BUILD_NUMBER" ]]; then
+  echo "✗ 构建版本 $BUILT_VERSION ($BUILT_BUILD) 与源版本 $VERSION ($BUILD_NUMBER) 不一致。" >&2
+  exit 1
+fi
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
 SIG_INFO="$(codesign -dvvv "$APP_PATH" 2>&1)"
+if ! grep -q "Identifier=com.lixingchen.YKeys" <<< "$SIG_INFO"; then
+  echo "✗ app 签名标识不是 com.lixingchen.YKeys。" >&2
+  exit 1
+fi
 if ! grep -q "Developer ID Application" <<< "$SIG_INFO"; then
   echo "✗ app 未用 Developer ID 签名。" >&2
   exit 1
@@ -96,12 +161,12 @@ codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 echo "  ✓ app 签名校验通过"
 
 bold "▶ 2/7 公证 app 本体…"
-APP_ZIP="$(mktemp -d)/app.zip"
+APP_ZIP="$RELEASE_WORK/app.zip"
 ditto -c -k --keepParent "$APP_PATH" "$APP_ZIP"
 notarize "$APP_ZIP"
 rm -f "$APP_ZIP"
 xcrun stapler staple "$APP_PATH"
-xcrun stapler validate "$APP_PATH"
+validate_staple "$APP_PATH"
 echo "  ✓ app 已公证并装订"
 
 bold "▶ 3/7 打包 DMG…"
@@ -118,20 +183,34 @@ echo "  ✓ DMG 已公证"
 
 bold "▶ 6/7 装订 DMG 票据…"
 xcrun stapler staple "$DMG_PATH"
-xcrun stapler validate "$DMG_PATH"
-echo "  ✓ DMG 已装订"
+validate_staple "$DMG_PATH"
+hdiutil verify "$DMG_PATH"
+echo "  ✓ DMG 已装订并通过镜像校验"
 
 bold "▶ 7/7 Gatekeeper 验证…"
 spctl -a -vvv -t open --context context:primary-signature "$DMG_PATH"
 VERIFY_MOUNT="$(mktemp -d /tmp/Y-Keys-verify.XXXXXX)"
 hdiutil attach "$DMG_PATH" -mountpoint "$VERIFY_MOUNT" -nobrowse -noautoopen >/dev/null
 codesign --verify --deep --strict --verbose=2 "$VERIFY_MOUNT/$APP_NAME.app"
+validate_staple "$VERIFY_MOUNT/$APP_NAME.app"
 spctl -a -t exec -vvv "$VERIFY_MOUNT/$APP_NAME.app"
-hdiutil detach "$VERIFY_MOUNT" >/dev/null 2>&1 || hdiutil detach "$VERIFY_MOUNT" -force >/dev/null 2>&1
+detach_with_retry "$VERIFY_MOUNT"
 rm -rf "$VERIFY_MOUNT"
 VERIFY_MOUNT=""
+VERSIONED_DMG_TEMP_DIR="$(mktemp -d "$ROOT_DIR/dist/.Y-Keys-v$VERSION.XXXXXX")"
+VERSIONED_DMG_TEMP="$VERSIONED_DMG_TEMP_DIR/Y-Keys-v$VERSION.dmg"
+cp "$DMG_PATH" "$VERSIONED_DMG_TEMP"
+cmp -s "$DMG_PATH" "$VERSIONED_DMG_TEMP"
+codesign --verify --verbose=4 "$VERSIONED_DMG_TEMP"
+validate_staple "$VERSIONED_DMG_TEMP"
+spctl -a -vvv -t open --context context:primary-signature "$VERSIONED_DMG_TEMP"
+mv "$VERSIONED_DMG_TEMP" "$VERSIONED_DMG_PATH"
+VERSIONED_DMG_TEMP=""
+rm -rf "$VERSIONED_DMG_TEMP_DIR"
+VERSIONED_DMG_TEMP_DIR=""
 
 echo ""
 bold "✅ 发布产物完成"
-echo "可分发文件：$DMG_PATH"
-ls -lh "$DMG_PATH"
+echo "基础镜像：$DMG_PATH"
+echo "Release 文件：$VERSIONED_DMG_PATH"
+ls -lh "$DMG_PATH" "$VERSIONED_DMG_PATH"

@@ -136,11 +136,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         keyboardMonitor.onInputStateChanged = { [weak self] state in
             self?.overlayController.updatePressedSymbols(state.symbols)
         }
-        keyboardMonitor.onKeyDown = { [weak self] state, _ in
-            guard let self, self.overlayController.isVisible else { return }
-            if !self.overlayController.hasShortcutMatching(state.symbols) {
-                self.overlayController.close()
-            }
+        keyboardMonitor.onKeyDown = { [weak self] state, key in
+            guard let self, self.overlayController.isVisible else { return false }
+            return self.overlayController.handleKeyDown(
+                pressedSymbols: state.symbols,
+                key: key
+            )
         }
     }
 
