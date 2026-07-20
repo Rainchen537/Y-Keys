@@ -14,7 +14,7 @@
 - 完成 `v0.1.5` 发布闭环：对应源码提交 `b4e7e5cbf0d24a59c48c08b2b6e1fcb65daf4b8f`、tag `v0.1.5`、Release `https://github.com/Rainchen537/Y-Keys/releases/tag/v0.1.5`。GitHub Release 的 tag、标题、真实换行 release notes、资产 `Y-Keys-v0.1.5.dmg`、下载链接和 asset digest 均已复核，远端 digest 与本地 SHA256 完全一致。
 - 从上述最终签名、公证并 stapled 的 DMG 覆盖安装到 `/Applications/Y-Keys.app` 并启动；确认正式安装版为 `0.1.5 (6)`、Bundle ID `com.lixingchen.YKeys`、`LSUIElement=true`、Developer ID 团队 `A94225N8T5`，hardened runtime、严格 codesign、App/DMG stapled ticket 与 Gatekeeper 均通过，且只运行一个正式进程。
 - 使用包含 152 条合成应用快捷键的 enabled Probe 验证最终安装版：双击左 Command 可呼出 layer 998 浮层，右侧系统分组完整可见且无滚动条；只按 Command 时 Command-Z 与 Command-Shift-Z 均作为合法前缀候选高亮，继续按 Shift 后前者恢复暗态、后者保持高亮，名称、行背景和已按键帽同步强调。
-- Probe 页面含 Esc 快捷键时，第一次 Esc 显示“再次按下 Esc 退出”，第二次关闭浮层；`/tmp/ykeys-esc-events.log` 未生成，确认底层 Probe 未收到被浮层处理的 Esc key-down、自动重复或对应 key-up。
+- Probe 页面含 Esc 快捷键时，第一次 Esc 显示“再次按下 Esc 退出”，第二次关闭浮层；`/tmp/ykeys-esc-events.log` 未生成，确认本次两次 Esc 的 key-down 与对应 key-up 均未到达底层 Probe；自动重复事件会命中同一 `suppressedKeyCodes` 过滤路径并返回 `nil`。
 - 最终安装版设置页确认 `Y-Keys v0.1.5`、当前副本为“正式安装版”、辅助功能和输入监控“已开启”、键盘监听“运行中”；更新页通过 GitHub Release 手动检查并显示“已是最新版 0.1.5”。
 
 - 重做 Y-Keys 应用图标：保留 Y-Project 的浅色圆角底板、深靛蓝和紫粉橙渐变，以三枚修饰键、宽 Command 键和半透明错位键盘层表达“快捷键集合”和“双击左 Command”。
