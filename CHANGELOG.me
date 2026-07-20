@@ -11,6 +11,11 @@
 - 使用当前正式安装版构建完整测试 DMG 并在深色系统外观下截图复查：Finder 黑色 `Y-Keys.app` / `Applications` 名称清晰可读，箭头与两枚图标纵向中心对齐，左上角不再显示 `.background` 或 `.fseventsd`；共享框架的最终只读重挂载和兼容 App 画外坐标验证也已通过完整 APFS 测试。
 - 准备发布 `v0.1.5`，版本号为 `CFBundleShortVersionString=0.1.5`、`CFBundleVersion=6`；README、公开 changelog 和维护说明已同步。
 - 基于最终源码运行正式构建和发布流程：App 公证 ID 为 `07eb040e-222e-4a65-81ae-c19b6d894687`，DMG 公证 ID 为 `f7c2b40c-ecae-4e03-855c-9620ffd747ad`；最终 `Y-Keys-v0.1.5.dmg` SHA256 为 `921f3822a6ffe0a4dd56dc41acd0d4d66df4612b4a750fed960a717be5166504`，Developer ID、hardened runtime、严格签名、App/DMG stapled ticket、Gatekeeper 与 `hdiutil verify` 均通过。
+- 完成 `v0.1.5` 发布闭环：对应源码提交 `b4e7e5cbf0d24a59c48c08b2b6e1fcb65daf4b8f`、tag `v0.1.5`、Release `https://github.com/Rainchen537/Y-Keys/releases/tag/v0.1.5`。GitHub Release 的 tag、标题、真实换行 release notes、资产 `Y-Keys-v0.1.5.dmg`、下载链接和 asset digest 均已复核，远端 digest 与本地 SHA256 完全一致。
+- 从上述最终签名、公证并 stapled 的 DMG 覆盖安装到 `/Applications/Y-Keys.app` 并启动；确认正式安装版为 `0.1.5 (6)`、Bundle ID `com.lixingchen.YKeys`、`LSUIElement=true`、Developer ID 团队 `A94225N8T5`，hardened runtime、严格 codesign、App/DMG stapled ticket 与 Gatekeeper 均通过，且只运行一个正式进程。
+- 使用包含 152 条合成应用快捷键的 enabled Probe 验证最终安装版：双击左 Command 可呼出 layer 998 浮层，右侧系统分组完整可见且无滚动条；只按 Command 时 Command-Z 与 Command-Shift-Z 均作为合法前缀候选高亮，继续按 Shift 后前者恢复暗态、后者保持高亮，名称、行背景和已按键帽同步强调。
+- Probe 页面含 Esc 快捷键时，第一次 Esc 显示“再次按下 Esc 退出”，第二次关闭浮层；`/tmp/ykeys-esc-events.log` 未生成，确认底层 Probe 未收到被浮层处理的 Esc key-down、自动重复或对应 key-up。
+- 最终安装版设置页确认 `Y-Keys v0.1.5`、当前副本为“正式安装版”、辅助功能和输入监控“已开启”、键盘监听“运行中”；更新页通过 GitHub Release 手动检查并显示“已是最新版 0.1.5”。
 
 - 重做 Y-Keys 应用图标：保留 Y-Project 的浅色圆角底板、深靛蓝和紫粉橙渐变，以三枚修饰键、宽 Command 键和半透明错位键盘层表达“快捷键集合”和“双击左 Command”。
 - 通过 `icon/make_icns.sh` 同步生成 `icon/icon_1024.png`、`icon/AppIcon.icns` 和 `docs/icon-256.png`，并完成 1024px、256px 视觉复查。
