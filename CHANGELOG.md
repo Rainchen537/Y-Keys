@@ -2,6 +2,11 @@
 
 All notable Y-Keys release changes are tracked here.
 
+## v0.1.5 - 2026-07-20
+
+- Rebuilt the drag-to-install DMG with a light high-contrast 2x Retina background, keeping Finder's black app labels crisp and readable in light and dark system appearances.
+- Removed visible `.background` and `.fseventsd` folders from the final image, hid Finder's toolbar, status bar, path bar, and tab bar, and aligned the installation arrow from the saved Y-Keys and Applications icon coordinates.
+
 ## v0.1.4 - 2026-07-20
 
 - Redesigned the app icon as a compact shortcut deck with modifier keys, a wide Command key, and an offset layer that communicates the double-Command trigger while matching the Y-Project visual family.

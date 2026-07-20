@@ -6,6 +6,12 @@
 
 ## 2026-07-20
 
+- 同步新版共享 APFS DMG 框架：背景改为浅色高对比设计并默认生成 `1280×800 / 144 DPI` 的 2x Retina PNG，按 Y-Keys 与 Applications 的真实 Finder 坐标绘制居中箭头；安装窗口显式隐藏工具栏、状态栏、路径栏和标签页栏，防止内容区高度变化造成图标与箭头偏移。
+- 背景资源从普通 `.background` 迁移到 Finder 特殊隐藏的 `.Trashes/bg.png`；可写镜像保存布局后清除 `.fseventsd`、索引和临时卷元数据，最终只读镜像会验证背景像素/DPI、完整图标坐标和窗口栏状态，并断言旧元数据目录不存在。
+- 使用当前正式安装版构建完整测试 DMG 并在深色系统外观下截图复查：Finder 黑色 `Y-Keys.app` / `Applications` 名称清晰可读，箭头与两枚图标纵向中心对齐，左上角不再显示 `.background` 或 `.fseventsd`；共享框架的最终只读重挂载和兼容 App 画外坐标验证也已通过完整 APFS 测试。
+- 准备发布 `v0.1.5`，版本号为 `CFBundleShortVersionString=0.1.5`、`CFBundleVersion=6`；README、公开 changelog 和维护说明已同步。
+- 基于最终源码运行正式构建和发布流程：App 公证 ID 为 `07eb040e-222e-4a65-81ae-c19b6d894687`，DMG 公证 ID 为 `f7c2b40c-ecae-4e03-855c-9620ffd747ad`；最终 `Y-Keys-v0.1.5.dmg` SHA256 为 `921f3822a6ffe0a4dd56dc41acd0d4d66df4612b4a750fed960a717be5166504`，Developer ID、hardened runtime、严格签名、App/DMG stapled ticket、Gatekeeper 与 `hdiutil verify` 均通过。
+
 - 重做 Y-Keys 应用图标：保留 Y-Project 的浅色圆角底板、深靛蓝和紫粉橙渐变，以三枚修饰键、宽 Command 键和半透明错位键盘层表达“快捷键集合”和“双击左 Command”。
 - 通过 `icon/make_icns.sh` 同步生成 `icon/icon_1024.png`、`icon/AppIcon.icns` 和 `docs/icon-256.png`，并完成 1024px、256px 视觉复查。
 - 重做菜单栏图标为透明 `18 x 18` template image：两层错位键帽轮廓结合 Command 符号，避免旧实现中不透明白色区域参与模板着色。

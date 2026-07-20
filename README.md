@@ -37,7 +37,7 @@
 
 下载安装包：
 
-1. 前往 [Releases](https://github.com/Rainchen537/Y-Keys/releases/latest) 下载最新 [`Y-Keys-v0.1.4.dmg`](https://github.com/Rainchen537/Y-Keys/releases/download/v0.1.4/Y-Keys-v0.1.4.dmg)。
+1. 前往 [Releases](https://github.com/Rainchen537/Y-Keys/releases/latest) 下载最新 [`Y-Keys-v0.1.5.dmg`](https://github.com/Rainchen537/Y-Keys/releases/download/v0.1.5/Y-Keys-v0.1.5.dmg)。
 2. 打开 DMG。
 3. 将 `Y-Keys.app` 拖到 `Applications`。
 4. 启动后按提示开启辅助功能与输入监控权限。
