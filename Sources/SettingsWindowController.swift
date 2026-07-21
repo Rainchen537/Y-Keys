@@ -228,6 +228,9 @@ private final class SettingsContentController {
             views: [
                 YSettingUI.row(title: "当前版本", trailingView: versionPill),
                 YSettingUI.row(title: "发布渠道", trailingView: YSettingPill(text: "GitHub Release", tone: .accent)),
+                YSettingUI.row(title: "下载方式", trailingView: YSettingPill(text: "手动选择架构", tone: .neutral)),
+                YSettingUI.row(title: "Apple Silicon", trailingView: YSettingPill(text: "arm64 DMG", tone: .accent)),
+                YSettingUI.row(title: "Intel", trailingView: YSettingPill(text: "x86_64 DMG", tone: .neutral)),
                 YSettingUI.row(title: "手动检查", trailingView: YSettingUI.horizontal([updateStatusPill, checkUpdateButton])),
                 YSettingUI.row(title: "下载页面", trailingView: releasesButton)
             ]

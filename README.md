@@ -28,7 +28,7 @@
 | 精确实时高亮 | 按住 `⌘` 时高亮所有包含 `⌘` 的候选项及其名称；继续按 `⇧` 后，不含 `⇧` 的组合会立即变暗，只保留修饰键完全兼容的候选项。 |
 | Esc 安全退出 | 没有 Esc 快捷键时按一次退出；存在 Esc 快捷键时第一次显示“再次按下 Esc 退出”，在 1.2 秒内再按一次退出，两次 Esc 都会被 Y-Keys 拦截而不会传给原 App。 |
 | 轻量关闭规则 | 点击快捷键行会保持面板；点击背景、面板外区域或按下不属于任何快捷键组合的键会关闭面板。 |
-| 统一设置窗口 | 菜单栏入口打开独立设置窗口，可查看触发方式、权限状态、版本，并手动检查 GitHub Release 更新。 |
+| 统一设置窗口 | 菜单栏入口打开独立设置窗口，可查看触发方式、权限状态、版本，并手动检查 GitHub Release 更新；下载页会明确提示选择 Apple Silicon 或 Intel 安装包。 |
 | 权限分项诊断 | 辅助功能、输入监控和键盘监听运行状态分别显示；从系统设置返回 App 时会重新检测权限并重试监听，权限状态推进时会继续提示下一项而不重复轰炸相同警告。 |
 | 正式安装版切换 | 权限页区分正式安装版与开发副本，并可切换到签名验证通过的 `/Applications/Y-Keys.app`。 |
 | 原生菜单栏工具 | 默认不显示 Dock 图标，不打断当前工作流。 |
@@ -37,29 +37,47 @@
 
 下载安装包：
 
-1. 前往 [Releases](https://github.com/Rainchen537/Y-Keys/releases/latest) 下载最新 [`Y-Keys-v0.1.5.dmg`](https://github.com/Rainchen537/Y-Keys/releases/download/v0.1.5/Y-Keys-v0.1.5.dmg)。
-2. 打开 DMG。
-3. 将 `Y-Keys.app` 拖到 `Applications`。
-4. 启动后按提示开启辅助功能与输入监控权限。
+1. 根据 Mac 处理器下载 `v0.1.6` 对应安装包：
+   - **Apple Silicon（M 系列）**：[Y-Keys-v0.1.6-arm64.dmg](https://github.com/Rainchen537/Y-Keys/releases/download/v0.1.6/Y-Keys-v0.1.6-arm64.dmg)
+   - **Intel**：[Y-Keys-v0.1.6-x86_64.dmg](https://github.com/Rainchen537/Y-Keys/releases/download/v0.1.6/Y-Keys-v0.1.6-x86_64.dmg)
+2. 打开 DMG，将 `Y-Keys.app` 拖到 `Applications`。
+3. 启动后按提示开启辅助功能与输入监控权限。
+
+当前更新器只负责检查最新版并打开 Releases 页面，不会自动下载或安装；请按上述架构名称手动选择。
 
 ## 从源码构建
 
-需要 macOS 13+ 和 Xcode Command Line Tools。当前仓库默认面向 Apple Silicon 构建。
+需要 macOS 13+ 和 Xcode Command Line Tools。`build.sh` 默认构建 Apple Silicon thin binary，也可显式构建 Intel thin binary；`TARGET_ARCH` 只接受 `arm64` 或 `x86_64`。每次构建会在自己的临时目录生成图标资源，因此不同架构可并行构建且不会改写仓库内永久图标。
 
 ```zsh
 git clone https://github.com/Rainchen537/Y-Keys.git
 cd Y-Keys
+# 仅在需要显式同步仓库永久图标与 README 图标时运行
 ./icon/make_icns.sh
+
+# Apple Silicon（默认），输出 build/Y-Keys.app
 ./build.sh
+
+# Intel，使用隔离构建目录
+TARGET_ARCH=x86_64 BUILD_DIR_OVERRIDE="$PWD/build/x86_64" ./build.sh
+
+# 默认基于 build/Y-Keys.app 生成本地 DMG
 ./make_dmg.sh
 ./install_app.sh
 ```
 
-构建产物位于：
+本地默认产物位于：
 
 ```text
 build/Y-Keys.app
 dist/Y-Keys.dmg
+```
+
+正式发布脚本会分别从全新的构建和暂存目录生成：
+
+```text
+dist/Y-Keys-vX.Y.Z-arm64.dmg
+dist/Y-Keys-vX.Y.Z-x86_64.dmg
 ```
 
 ## 权限说明

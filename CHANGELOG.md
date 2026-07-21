@@ -2,6 +2,13 @@
 
 All notable Y-Keys release changes are tracked here.
 
+## v0.1.6 - 2026-07-22
+
+- Prepared separate Apple Silicon (`arm64`) and Intel (`x86_64`) thin builds, with isolated paths, per-build temporary icon generation, parallel-build safety, and strict architecture checks.
+- Updated the release flow to independently build, stage, sign, notarize, staple, mount, and verify both architecture-specific DMGs, then publish them as a checked pair through staging and `.new` files; failed finalization restores the prior complete asset pair instead of leaving partial output.
+- Hardened the DMG wrapper against directory or symlink outputs and stale staged files.
+- Clarified in Settings and the README that update checks still open GitHub Releases and users must manually choose the matching Apple Silicon or Intel download.
+
 ## v0.1.5 - 2026-07-20
 
 - Rebuilt the drag-to-install DMG with a light high-contrast 2x Retina background, keeping Finder's black app labels crisp and readable in light and dark system appearances.

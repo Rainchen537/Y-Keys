@@ -4,6 +4,19 @@
 
 用户可见发布历史维护在 `CHANGELOG.md`，GitHub Release 需要同步用户可见发布说明。
 
+## 2026-07-22
+
+- 准备 `v0.1.6`，版本号更新为 `CFBundleShortVersionString=0.1.6`、`CFBundleVersion=7`。
+- `build.sh` 新增 `TARGET_ARCH=arm64|x86_64` 白名单，默认 arm64，并通过 `BUILD_DIR_OVERRIDE` 支持架构隔离输出；编译后、签名后和最终严格校验副本均断言仅包含目标架构。本地构建默认使用 ad-hoc 签名，不读取正式签名身份。图标生成改为每次使用自身临时目录和临时 iconset，不再改写或争用仓库永久图标，因此两个架构可以安全并行构建。
+- `make_dmg.sh` 新增 App 名称、App 路径、卷名和输出路径 override，并在调用共享框架前拒绝目录输出，退出时清理 staged 临时文件，成功后断言产物是普通文件且非 symlink。
+- `release.sh` 改为 arm64 / x86_64 各自使用全新 build/stage，在 Developer ID 签名前后及 DMG 挂载后断言 thin 架构，并分别完成 App/DMG 签名、公证、staple、Gatekeeper 与镜像验证。两份 staging source 会先成套预检，再复制到同目录 `.new` 并复验；随后备份原有完整资产组、切换正式路径并再次复验，任一步普通失败都清理本轮文件并恢复旧资产组，避免留下单架构半成品；回滚模拟已通过。新增同版本原子目录锁，拒绝并发发布互相覆盖或误删正式资产；记录仓库源码指纹并在每个架构构建前后及最终切换前复核，中途源码变化即停止，避免双包来自不同源码。异常崩溃遗留锁时会阻止后续流程静默覆盖现场。
+- 更新页与 README 明确区分 Apple Silicon 的 `arm64` DMG 和 Intel 的 `x86_64` DMG；当前更新器仍只检查版本并打开 Releases，不增加自动下载或安装。
+- 无凭据验证通过：arm64 与 x86_64 使用不同 `BUILD_DIR_OVERRIDE` 同时并行构建成功，分别得到对应 thin App；两者的无扩展属性副本均通过 strict codesign，版本均为 `0.1.6 (7)`，构建前后的仓库永久 PNG / ICNS / README 图标校验值完全一致，确认没有共享图标写入竞争。非法 `TARGET_ARCH` 仍会在构建前被拒绝。
+- `make_dmg.sh` 的目录型 `OUTPUT_PATH_OVERRIDE` 拒绝检查、全部脚本 `zsh -n`、`Info.plist` lint 和 diff 格式检查通过；并行 arm64 开发构建的设置预览通过：权限页分别显示当前副本、辅助功能、输入监控和键盘监听状态；更新页完整显示手动选择架构、arm64 DMG 与 x86_64 DMG；无效 section 回退到“通用”且 sidebar 选中一致。测试进程已关闭，临时预览图片和目录已清理。
+- 正式运行最终 `release.sh` 成功：两个架构的 App 和 DMG 均分别完成 Developer ID 签名、公证、staple、Gatekeeper、`hdiutil verify`、最终只读挂载和精确 thin 架构复核。最终 arm64 DMG 为 `1,553,274` bytes，SHA256 `35458e62bbdef4f451cd55a7077c767dfc2b9b94b2d973a6447ac1b53e6a0fdf`；x86_64 DMG 为 `1,564,396` bytes，SHA256 `ad89fecef213b2e71284ba63d8b68e17a33549a3c7814dc4330b4e4bf5264955`。
+- 从最终 arm64 DMG 以可回滚方式覆盖安装 `/Applications/Y-Keys.app`，确认 `0.1.6 (7)`、Team ID `A94225N8T5`、严格 codesign、stapled ticket、Gatekeeper 与 arm64 thin 架构通过并恢复后台运行；x86_64 最终 DMG 中严格 thin 的 App 通过 Rosetta 短暂启动冒烟后已终止，镜像和临时挂载点已清理。
+- 公开 changelog 已从 Unreleased 更新为 `2026-07-22`，README 使用两个架构的版本化下载链接。本轮未读取或输出公证/GitHub 凭据；提交、tag、上传和 GitHub Release 仍须使用上述已验证的同一组最终 DMG。
+
 ## 2026-07-20
 
 - 同步新版共享 APFS DMG 框架：背景改为浅色高对比设计并默认生成 `1280×800 / 144 DPI` 的 2x Retina PNG，按 Y-Keys 与 Applications 的真实 Finder 坐标绘制居中箭头；安装窗口显式隐藏工具栏、状态栏、路径栏和标签页栏，防止内容区高度变化造成图标与箭头偏移。
