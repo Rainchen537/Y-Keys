@@ -13,9 +13,9 @@
 - 更新页与 README 明确区分 Apple Silicon 的 `arm64` DMG 和 Intel 的 `x86_64` DMG；当前更新器仍只检查版本并打开 Releases，不增加自动下载或安装。
 - 无凭据验证通过：arm64 与 x86_64 使用不同 `BUILD_DIR_OVERRIDE` 同时并行构建成功，分别得到对应 thin App；两者的无扩展属性副本均通过 strict codesign，版本均为 `0.1.6 (7)`，构建前后的仓库永久 PNG / ICNS / README 图标校验值完全一致，确认没有共享图标写入竞争。非法 `TARGET_ARCH` 仍会在构建前被拒绝。
 - `make_dmg.sh` 的目录型 `OUTPUT_PATH_OVERRIDE` 拒绝检查、全部脚本 `zsh -n`、`Info.plist` lint 和 diff 格式检查通过；并行 arm64 开发构建的设置预览通过：权限页分别显示当前副本、辅助功能、输入监控和键盘监听状态；更新页完整显示手动选择架构、arm64 DMG 与 x86_64 DMG；无效 section 回退到“通用”且 sidebar 选中一致。测试进程已关闭，临时预览图片和目录已清理。
-- 正式运行最终 `release.sh` 成功：两个架构的 App 和 DMG 均分别完成 Developer ID 签名、公证、staple、Gatekeeper、`hdiutil verify`、最终只读挂载和精确 thin 架构复核。最终 arm64 DMG 为 `1,553,274` bytes，SHA256 `35458e62bbdef4f451cd55a7077c767dfc2b9b94b2d973a6447ac1b53e6a0fdf`；x86_64 DMG 为 `1,564,396` bytes，SHA256 `ad89fecef213b2e71284ba63d8b68e17a33549a3c7814dc4330b4e4bf5264955`。
-- 从最终 arm64 DMG 以可回滚方式覆盖安装 `/Applications/Y-Keys.app`，确认 `0.1.6 (7)`、Team ID `A94225N8T5`、严格 codesign、stapled ticket、Gatekeeper 与 arm64 thin 架构通过并恢复后台运行；x86_64 最终 DMG 中严格 thin 的 App 通过 Rosetta 短暂启动冒烟后已终止，镜像和临时挂载点已清理。
-- 公开 changelog 已从 Unreleased 更新为 `2026-07-22`，README 使用两个架构的版本化下载链接。本轮未读取或输出公证/GitHub 凭据；提交、tag、上传和 GitHub Release 仍须使用上述已验证的同一组最终 DMG。
+- 从发布源码提交 `8450c1d` 重新运行最终 `release.sh` 成功：两个架构的 App 和 DMG 均分别完成 Developer ID 签名、公证、staple、Gatekeeper、`hdiutil verify`、最终只读挂载和精确 thin 架构复核。唯一最终 arm64 DMG 为 `1,553,242` bytes，SHA256 `b2964dca61525d871454725fedd433a8eb83c7b8be357b222f7c2eb51a82b1d6`；x86_64 DMG 为 `1,564,361` bytes，SHA256 `d33316a24c1ca16b3db7456da40840337a6aa7c8ec5b2aa5bcdc0166edc93729`；此前重新生成前的摘要已作废，不得用于上传或校验。
+- 从上述最终 arm64 DMG 以可回滚方式覆盖安装 `/Applications/Y-Keys.app`，确认 `0.1.6 (7)`、Team ID `A94225N8T5`、严格 codesign、stapled ticket、Gatekeeper 与 arm64 thin 架构通过并恢复后台运行；上述 x86_64 最终 DMG 中严格 thin 的 App 通过 Rosetta translated 模式短暂启动冒烟后已终止，镜像和临时挂载点已清理。
+- 公开 changelog 已更新为 `2026-07-22`，README 使用两个架构的版本化下载链接。发布源码提交和 tag `v0.1.6` 已推送；GitHub Draft Release 已严格先上传 arm64、确认其为首个且唯一 DMG 后再上传 x86_64，远端两份资产的名称、顺序、bytes、SHA256 digest 和真实换行 release notes 均与上述最终文件一致。Draft 尚未公开，公开后仍须复核 latest API 首个 `.dmg` 为 arm64。本轮未读取或输出公证/GitHub 凭据。
 
 ## 2026-07-20
 
