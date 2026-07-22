@@ -75,12 +75,25 @@ if [[ ! -f "$BUILD_ICON_DIR/AppIcon.icns" || -L "$BUILD_ICON_DIR/AppIcon.icns" ]
 fi
 cp "$BUILD_ICON_DIR/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
 
+if [[ "${Y_RELEASE_REQUIRE_VENDORED:-0}" == "1" &&
+      ( ! -d "$ROOT_DIR/Y-Framework" || -L "$ROOT_DIR/Y-Framework" ) ]]; then
+  echo "错误：正式发布要求仓库内非符号链接 Y-Framework 根目录。" >&2
+  exit 1
+fi
 SETTING_FRAMEWORK_DIR="$ROOT_DIR/Y-Framework/Setting"
 PERMISSION_FRAMEWORK_DIR="$ROOT_DIR/Y-Framework/Permission"
 if [[ ! -d "$SETTING_FRAMEWORK_DIR" ]]; then
+  if [[ "${Y_RELEASE_REQUIRE_VENDORED:-0}" == "1" ]]; then
+    echo "错误：正式发布要求仓库内 vendored Setting 框架，禁止回退父目录。" >&2
+    exit 1
+  fi
   SETTING_FRAMEWORK_DIR="$ROOT_DIR/../Y-Framework/Setting"
 fi
 if [[ ! -d "$PERMISSION_FRAMEWORK_DIR" ]]; then
+  if [[ "${Y_RELEASE_REQUIRE_VENDORED:-0}" == "1" ]]; then
+    echo "错误：正式发布要求仓库内 vendored Permission 框架，禁止回退父目录。" >&2
+    exit 1
+  fi
   PERMISSION_FRAMEWORK_DIR="$ROOT_DIR/../Y-Framework/Permission"
 fi
 FRAMEWORK_SOURCES=(

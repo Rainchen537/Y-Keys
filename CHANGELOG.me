@@ -6,6 +6,8 @@
 
 ## 2026-07-22
 
+- 仅维护 Y-Keys 发布工具链，不修改运行时代码且不重新发布：`release.sh` 源码指纹改为 fail closed，确认独立 Git 根、显式检查 tracked/untracked NUL 枚举、直接写入 symlink 原始 target 字节（保留末尾换行）、为 tracked 工作区删除写入稳定 marker，并通过 stdin 计算普通文件 SHA-256，使反斜杠或换行文件名也能稳定进入摘要；完整 `.new` 双包验证后切换前及最终产物验证后成功标记前再次复核。
+- 正式发布在 baseline 前要求仓库内非 symlink 的 `Y-Framework` 共同祖先以及 Setting、Permission、DMG vendored 子树；`release.sh` 调用 `build.sh` / `make_dmg.sh` 时启用 `Y_RELEASE_REQUIRE_VENDORED=1`，禁止回退到父目录 tag 外源码，并固定仓库内背景生成器、清除外部布局变量。最终 DMG 只读挂载继续断言版本与构建号。三项目指纹、异常文件名与 vendored 输入 harness 均通过，其中 vendored harness 15/15 覆盖外部 generator、父目录 fallback、DMG symlink 和祖先 symlink；三套修改脚本通过 `zsh -n`。
 - 准备 `v0.1.6`，版本号更新为 `CFBundleShortVersionString=0.1.6`、`CFBundleVersion=7`。
 - `build.sh` 新增 `TARGET_ARCH=arm64|x86_64` 白名单，默认 arm64，并通过 `BUILD_DIR_OVERRIDE` 支持架构隔离输出；编译后、签名后和最终严格校验副本均断言仅包含目标架构。本地构建默认使用 ad-hoc 签名，不读取正式签名身份。图标生成改为每次使用自身临时目录和临时 iconset，不再改写或争用仓库永久图标，因此两个架构可以安全并行构建。
 - `make_dmg.sh` 新增 App 名称、App 路径、卷名和输出路径 override，并在调用共享框架前拒绝目录输出，退出时清理 staged 临时文件，成功后断言产物是普通文件且非 symlink。
