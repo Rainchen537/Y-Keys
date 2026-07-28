@@ -134,3 +134,5 @@ Y-Keys 延续了 Y-Clip 和 Y-Dock 的产品方向：
 ## 许可
 
 MIT License
+
+友情链接：[Linux.do](https://linux.do/)
