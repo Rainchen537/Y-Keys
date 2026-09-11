@@ -4,6 +4,10 @@
 
 用户可见发布历史维护在 `CHANGELOG.md`，GitHub Release 需要同步用户可见发布说明。
 
+## 2026-09-12
+
+- README 新增安装后的快速上手步骤：切换目标 App、双击左 Command、修饰键高亮、关闭面板与菜单栏设置入口。已对照现有 README、维护说明与键盘监听实现核对，并通过 `git diff --check`；仅文档修改，未构建或发布 App。
+
 ## 2026-07-22
 
 - 仅维护 Y-Keys 发布工具链，不修改运行时代码且不重新发布：`release.sh` 源码指纹改为 fail closed，确认独立 Git 根、显式检查 tracked/untracked NUL 枚举、直接写入 symlink 原始 target 字节（保留末尾换行）、为 tracked 工作区删除写入稳定 marker，并通过 stdin 计算普通文件 SHA-256，使反斜杠或换行文件名也能稳定进入摘要；完整 `.new` 双包验证后切换前及最终产物验证后成功标记前再次复核。
